@@ -1,0 +1,545 @@
+openapi: 3.0.3
+info:
+  title: Travelmate API
+  description: API for Travelmate
+  version: 1.0.0
+
+servers:
+  # - url: https://api.travelmate.com
+  #   description: Production server
+  # - url: https://staging.travelmate.com
+  #   description: Staging server
+  - url: https://localhost:5000
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: APIs for user authentication (register and login)
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fullName
+                - email
+                - username
+                - password
+              properties:
+                fullName:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  example: johndoe@example.com
+                username:
+                  type: string
+                  example: johndoe123
+                password:
+                  type: string
+                  example: mysecurepassword
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Registration successful
+                  token:
+                    type: string
+                    example: <JWT Token>
+                  account:
+                    type: object
+                  user:
+                    type: object
+        '400':
+          description: Email or username already exists
+        '500':
+          description: Server error
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: johndoe123
+                password:
+                  type: string
+                  example: mysecurepassword
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Login successful
+                  token:
+                    type: string
+                    example: <JWT Token>
+                  account:
+                    type: object
+                  user:
+                    type: object
+        '401':
+          description: Invalid login information or incorrect password
+        '500':
+          description: Server error
+
+components:
+  schemas:
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        username:
+          type: string
+          example: johndoe123
+        password:
+          type: string
+          example: "hashed_password"
+        role:
+          type: string
+          enum:
+            - user
+            - admin
+          example: user
+        accountStatus:
+          type: boolean
+          example: true
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    AlbumImage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        albumId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        imageUrl:
+          type: string
+          example: "https://example.com/image.jpg"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    ChatRoom:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        name:
+          type: string
+          example: "General Chat"
+        isGroup:
+          type: boolean
+          example: false
+        participants:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["64b7f3c2e4b0a3d2f8e4b0a3", "64b7f3c2e4b0a3d2f8e4b0a4"]
+        createdBy:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        postId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        commenterId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        commentText:
+          type: string
+          example: "This is a comment."
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        chatRoomId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        sender:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        content:
+          type: string
+          example: "Hello, how are you?"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        content:
+          type: string
+          example: "You have a new message."
+        notifyStatus:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    Rating:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userIsRated:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a4"
+        score:
+          type: integer
+          format: int32
+          example: 5
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userIsReported:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a4"
+        titleReport:
+          type: string
+          example: "Spam"
+        description:
+          type: string
+          example: "This user is spamming."
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    TravelHistory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        participants:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["64b7f3c2e4b0a3d2f8e4b0a3", "64b7f3c2e4b0a3d2f8e4b0a4"]
+        destination:
+          type: string
+          example: "Paris"
+        arrivalDate:
+          type: string
+          format: date
+          example: "2025-05-01"
+        returnDate:
+          type: string
+          format: date
+          example: "2025-05-10"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    TravelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        destination:
+          type: string
+          example: "New York"
+        arrivalDate:
+          type: string
+          format: date
+          example: "2025-05-01"
+        returnDate:
+          type: string
+          format: date
+          example: "2025-05-10"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        fullName:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          example: "johndoe@example.com"
+        dob:
+          type: string
+          format: date
+          example: "1990-01-01"
+        job:
+          type: string
+          example: "Software Engineer"
+        phone:
+          type: string
+          example: "123-456-7890"
+        address:
+          type: string
+          example: "123 Main St, City, Country"
+        hometown:
+          type: string
+          example: "Hometown City"
+        cccd:
+          type: string
+          example: "123456789"
+        hobbies:
+          type: array
+          items:
+            type: string
+          example: ["Reading", "Traveling"]
+        description:
+          type: string
+          example: "A passionate traveler."
+        rate:
+          type: number
+          format: float
+          example: 4.5
+        avatar:
+          type: string
+          example: "https://example.com/avatar.jpg"
+        coverImage:
+          type: string
+          example: "https://example.com/cover.jpg"
+        travelStatus:
+          type: boolean
+          example: true
+        currentLocation:
+          type: string
+          example: "New York"
+        payment:
+          type: string
+          example: "Credit Card"
+        connections:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["64b7f3c2e4b0a3d2f8e4b0a3", "64b7f3c2e4b0a3d2f8e4b0a4"]
+        title:
+          type: string
+          example: "Traveler"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    UserAlbum:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        albumName:
+          type: string
+          example: "Vacation Album"
+        description:
+          type: string
+          example: "Photos from my vacation."
+        coverImage:
+          type: object
+          properties:
+            imageId:
+              type: string
+              format: uuid
+              example: "64b7f3c2e4b0a3d2f8e4b0a3"
+            imageUrl:
+              type: string
+              example: "https://example.com/cover.jpg"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    UserStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        content:
+          type: string
+          example: "Enjoying my vacation!"
+        images:
+          type: array
+          items:
+            type: string
+          example: ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"

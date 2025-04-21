@@ -4,6 +4,8 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var favicon = require('serve-favicon');
 require('dotenv').config();
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swaggerOptions');
 const connectDB = require('./configs/dbConfig');
 
 var indexRouter = require('./routes/index');
@@ -23,6 +25,7 @@ connectDB();
 
 // Routes
 app.use('/', indexRouter);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/auth', authRoutes);
 
 module.exports = app;
