@@ -31,7 +31,7 @@ Travelmate-BE is the backend service for the Travelmate project. It is built usi
 1. Create a `.env` file in the root directory.
 2. Add the following environment variables:
    ```env
-   PORT=3000
+   PORT=5000
    MONGO_URI=<your-mongodb-connection-string>
    JWT_SECRET=<your-jwt-secret>
    ```
