@@ -13,6 +13,8 @@ var indexRouter = require('./routes/index');
 const authRoutes = require('./routes/authRoutes');
 const userRouters = require('./routes/userRouters');
 const userBlogRoutes = require('./routes/userBlogRouters');
+const userAlbumRoutes = require('./routes/userAlbumRouters');
+const albumImageRoutes = require('./routes/albumImageRouters');
 
 var app = express();
 
@@ -41,5 +43,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/auth', authRoutes);
 app.use('/users', userRouters);
 app.use('/userBlog', userBlogRoutes);
+app.use('/userAlbum', userAlbumRoutes);
+app.use('/albumImage', albumImageRoutes);
 
 module.exports = app;
