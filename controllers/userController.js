@@ -31,23 +31,6 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-function extractPublicIdFromUrl(url) {
-  const parts = url.split('/');
-  const fileWithExt = parts.pop(); // h7xqmnjwqmlqrn4lsn0r.jpg
-  const publicId = fileWithExt.split('.')[0]; // h7xqmnjwqmlqrn4lsn0r
-
-  // Tìm index của 'upload' để lấy phần sau nó, bỏ qua version
-  const uploadIndex = parts.indexOf('upload');
-  const folderParts = parts.slice(uploadIndex + 1); // Ví dụ: ['v1745253228', 'UserAlbum']
-
-  // Nếu phần đầu là version (bắt đầu bằng 'v' và là số), bỏ qua nó
-  if (folderParts[0].startsWith('v') && !isNaN(folderParts[0].slice(1))) {
-    folderParts.shift(); // bỏ 'v1745253228'
-  }
-
-  const folder = folderParts.join('/'); // UserAlbum
-  return `${folder}/${publicId}`; // UserAlbum/h7xqmnjwqmlqrn4lsn0r
-}
 
 // Cập nhật ảnh bìa
 exports.updateCoverImage = async (req, res) => {
@@ -66,9 +49,8 @@ exports.updateCoverImage = async (req, res) => {
     }
 
     // Delete old cover image from Cloudinary if it exists
-    if (user.coverImage && user.coverImage.url) {
-      const publicId = extractPublicIdFromUrl(user.coverImage.url);
-      await cloudinary.uploader.destroy(publicId);
+    if (user.coverImage && user.coverImage.publicId) {
+      await cloudinary.uploader.destroy(user.coverImage.publicId);
     }
 
     // Upload new cover image to Cloudinary
@@ -125,9 +107,8 @@ exports.updateAvatar = async (req, res) => {
     }
 
     // Delete old avatar from Cloudinary if it exists
-    if (user.avatar && user.avatar.url) {
-      const publicId = extractPublicIdFromUrl(user.avatar.url);
-      await cloudinary.uploader.destroy(publicId);
+    if (user.avatar && user.avatar.publicId) {
+      await cloudinary.uploader.destroy(user.avatar.publicId);
     }
 
     // Upload new avatar to Cloudinary
