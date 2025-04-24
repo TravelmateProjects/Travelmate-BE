@@ -11,7 +11,7 @@ const cors = require('cors');
 
 var indexRouter = require('./routes/index');
 const authRoutes = require('./routes/authRoutes');
-const userRouter = require('./routes/userRouter');
+const userRouters = require('./routes/userRouters');
 
 var app = express();
 
@@ -36,6 +36,6 @@ connectDB();
 app.use('/', indexRouter);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/auth', authRoutes);
-app.use('/users', userRouter);
+app.use('/users', userRouters);
 
 module.exports = app;
