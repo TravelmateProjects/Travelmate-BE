@@ -5,7 +5,7 @@ var logger = require('morgan');
 var favicon = require('serve-favicon');
 require('dotenv').config();
 const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./swaggerOptions');
+const swaggerDocument = require('./tests/swaggerOptions');
 const connectDB = require('./configs/dbConfig');
 const cors = require('cors');
 

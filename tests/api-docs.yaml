@@ -210,7 +210,7 @@ components:
           type: string
           format: date-time
           example: "2025-04-21T12:00:00Z"
-    Comment:
+    StatusComment:
       type: object
       properties:
         id:
@@ -533,8 +533,44 @@ components:
         images:
           type: array
           items:
-            type: string
-          example: ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+            type: object
+            properties:
+              url:
+                type: string
+                example: "https://example.com/image1.jpg"
+              uploadedAt:
+                type: string
+                format: date-time
+                example: "2025-04-21T10:00:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-04-21T12:00:00Z"
+    StatusReaction:
+      type: object
+      properties:
+        postId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        userId:
+          type: string
+          format: uuid
+          example: "64b7f3c2e4b0a3d2f8e4b0a3"
+        type:
+          type: string
+          enum:
+            - like
+            - love
+            - wow
+            - haha
+            - sad
+            - angry
+          example: like
         createdAt:
           type: string
           format: date-time
