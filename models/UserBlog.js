@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 
-const userStatusSchema = new mongoose.Schema({
+const userBlogSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   content: String,
+  address: String, // Địa chỉ nơi người dùng đã đến (tùy chọn) vị trí đăng bài viết
   images: [{
     url: String, // URL của ảnh trên Cloudinary hoặc nơi khác
     publicId: { type: String },
@@ -11,7 +12,6 @@ const userStatusSchema = new mongoose.Schema({
     // location: { type: [Number], index: '2dsphere' }, // Vị trí địa lý của ảnh (tùy chọn)
     uploadedAt: { type: Date, default: Date.now }, // Thời điểm tải ảnh lên (tùy chọn)
   }],
-  // Các trường khác của UserStatus
 }, { timestamps: true });
 
-module.exports = mongoose.model('UserStatus', userStatusSchema);
+module.exports = mongoose.model('UserBlog', userBlogSchema);

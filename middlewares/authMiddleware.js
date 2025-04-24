@@ -24,7 +24,7 @@ exports.verifyToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET); // nhớ thay đúng SECRET
     req.account = decoded; // gán decoded vào request
-    console.log('Decoded token:', decoded); // In ra để kiểm tra
+    // console.log('Decoded token:', decoded); // In ra để kiểm tra
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Invalid token' });

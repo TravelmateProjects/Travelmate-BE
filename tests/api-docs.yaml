@@ -516,7 +516,7 @@ components:
           type: string
           format: date-time
           example: "2025-04-21T12:00:00Z"
-    UserStatus:
+    UserBlog:
       type: object
       properties:
         id:

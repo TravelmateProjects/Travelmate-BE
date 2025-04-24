@@ -1,5 +1,4 @@
 const User = require('../models/User');
-const multer = require('multer');
 const cloudinary = require('../configs/cloudinary');
 
 
