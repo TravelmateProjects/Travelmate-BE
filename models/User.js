@@ -12,8 +12,14 @@ const userSchema = new mongoose.Schema({
   hobbies: [{ type: String }],
   description: { type: String },
   rate: { type: Number, default: 0 },
-  avatar: { type: String },       // Ảnh đại diện (URL Cloudinary)
-  coverImage: { type: String },   // Ảnh bìa (URL Cloudinary)
+  avatar: { 
+    url: { type: String },
+    publicId: { type: String },
+   },       // Ảnh đại diện (URL Cloudinary)
+  coverImage: { 
+    url: { type: String },
+    publicId: { type: String },
+   },   // Ảnh bìa (URL Cloudinary)
   travelStatus: { type: Boolean, default: false },
   currentLocation: { type: String },
   payment: { type: String },

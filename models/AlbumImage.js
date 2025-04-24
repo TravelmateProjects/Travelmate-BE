@@ -11,9 +11,12 @@ const albumImageSchema = new mongoose.Schema({
     required: true,
     ref: 'User'
   },
-  imageUrl: {
+  url: {
     type: String,
     required: true
+  },
+  publicId: { 
+    type: String 
   },
 //   caption: {
 //     type: String,

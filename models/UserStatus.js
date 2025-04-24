@@ -5,6 +5,7 @@ const userStatusSchema = new mongoose.Schema({
   content: String,
   images: [{
     url: String, // URL của ảnh trên Cloudinary hoặc nơi khác
+    publicId: { type: String },
     // caption: String, // Mô tả cho ảnh (tùy chọn)
     // altText: String, // Văn bản thay thế cho ảnh (tùy chọn, tốt cho SEO và trợ năng)
     // location: { type: [Number], index: '2dsphere' }, // Vị trí địa lý của ảnh (tùy chọn)
