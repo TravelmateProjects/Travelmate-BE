@@ -16,16 +16,37 @@ exports.register = async (req, res) => {
     const newUser = new User({ fullName, email });
     await newUser.save();
 
-    const newAccount = new Account({ username, password, userId: newUser._id });
+    const newAccount = new Account({ username, password, userId: newUser._id, refreshTokens: [] });
     await newAccount.save();
 
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       { accountId: newAccount._id, userId: newUser._id, role: newAccount.role },
       process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const refreshToken = jwt.sign(
+      { accountId: newAccount._id, userId: newUser._id, role: newAccount.role },
+      process.env.JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
 
-    res.status(201).json({ message: 'Registration successful', token, account: newAccount, user: newUser });
+    // Save refresh token to the database as part of the refreshTokens array
+    // newAccount.refreshTokens.push({ token: refreshToken });
+    // await newAccount.save();
+
+    res.cookie('accessToken', accessToken, { 
+      httpOnly: true, 
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true, 
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.status(201).json({ message: 'Registration successful', account: newAccount, user: newUser });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -67,6 +88,7 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   const { username, password } = req.body;
+  // const userAgent = req.headers['user-agent'];
 
   try {
     const account = await Account.findOne({ username }).populate('userId');
@@ -87,15 +109,22 @@ exports.login = async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    // Save the new refresh token to the database as part of the array with expiration date and user agent
+    // account.refreshTokens.push({ 
+    //   token: refreshToken, 
+    //   createdAt: new Date(), 
+    //   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    //   userAgent: userAgent
+    // });
+    // await account.save();
+
     res.cookie('accessToken', accessToken, { 
       httpOnly: true, 
-      // secure: true, 
       sameSite: 'strict',
       maxAge: 15 * 60 * 1000 // 15 minutes
     });
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true, 
-      // secure: true, 
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
@@ -164,6 +193,80 @@ exports.refreshToken = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(403).json({ message: 'Invalid or expired refresh token' });
+  }
+};
+
+// refesh token with database check
+// exports.refreshToken = async (req, res) => {
+//   const { refreshToken } = req.cookies;
+
+//   if (!refreshToken) {
+//     return res.status(401).json({ message: 'Refresh token not found' });
+//   }
+
+//   try {
+//     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+//     // Check if the refresh token exists in the database
+//     const account = await Account.findById(decoded.accountId);
+//     if (!account) {
+//       return res.status(403).json({ message: 'Account not found' });
+//     }
+
+//     const tokenExists = account.refreshTokens.some(tokenObj => 
+//       bcrypt.compareSync(refreshToken, tokenObj.token)
+//     );
+
+//     if (!tokenExists) {
+//       return res.status(403).json({ message: 'Invalid refresh token' });
+//     }
+
+//     // Remove the old refresh token and add a new one
+//     account.refreshTokens = account.refreshTokens.filter(tokenObj => 
+//       !bcrypt.compareSync(refreshToken, tokenObj.token)
+//     );
+
+//     const newRefreshToken = jwt.sign(
+//       { accountId: decoded.accountId, userId: decoded.userId, role: decoded.role },
+//       process.env.JWT_REFRESH_SECRET,
+//       { expiresIn: '7d' }
+//     );
+
+//     account.refreshTokens.push({ token: newRefreshToken });
+//     await account.save();
+
+//     const newAccessToken = jwt.sign(
+//       { accountId: decoded.accountId, userId: decoded.userId, role: decoded.role },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '15m' }
+//     );
+
+//     res.cookie('accessToken', newAccessToken, { 
+//       httpOnly: true, 
+//       sameSite: 'strict',
+//       maxAge: 15 * 60 * 1000 // 15 minutes
+//     });
+//     res.cookie('refreshToken', newRefreshToken, { 
+//       httpOnly: true, 
+//       sameSite: 'strict',
+//       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+//     });
+
+//     res.status(200).json({ message: 'Token refreshed successfully' });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(403).json({ message: 'Invalid or expired refresh token' });
+//   }
+// };
+
+exports.logout = (req, res) => {
+  try {
+    res.clearCookie('accessToken', { httpOnly: true, sameSite: 'strict' });
+    res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict' });
+    res.status(200).json({ message: 'Logout successful' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error during logout' });
   }
 };
 
