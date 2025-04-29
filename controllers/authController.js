@@ -130,6 +130,7 @@ exports.login = async (req, res) => {
     });
 
     res.status(200).json({
+      accessToken, // Them de test
       message: 'Login successful',
       account: {
         id: account._id,

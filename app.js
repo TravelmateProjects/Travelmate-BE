@@ -20,10 +20,10 @@ var app = express();
 
 // CORS - cho phép frontend truy cập
 app.use(cors({
-    // origin: 'http://localhost:3000',
-    origin: "*",
+    origin: ['http://localhost:3000', '*'],
+    // origin: "*",
     credentials: true
-  }));
+}));
 
 app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));

@@ -27,24 +27,24 @@ const userSchema = new mongoose.Schema({
   title: { type: String }
 }, { timestamps: true });
 
-const updateAvatar = async (userId, newAvatarUrl) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { avatar: newAvatarUrl },
-      { new: true } // Return the updated document
-    );
+// const updateAvatar = async (userId, newAvatarUrl) => {
+//   try {
+//     const user = await User.findByIdAndUpdate(
+//       userId,
+//       { avatar: newAvatarUrl },
+//       { new: true } // Return the updated document
+//     );
 
-    if (!user) {
-      throw new Error('User not found');
-    }
+//     if (!user) {
+//       throw new Error('User not found');
+//     }
 
-    return user;
-  } catch (error) {
-    console.error('Error updating avatar:', error);
-    throw error;
-  }
-};
+//     return user;
+//   } catch (error) {
+//     console.error('Error updating avatar:', error);
+//     throw error;
+//   }
+// };
 
 module.exports = mongoose.model('User', userSchema);
-module.exports.updateAvatar = updateAvatar;
+// module.exports.updateAvatar = updateAvatar;
