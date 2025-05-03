@@ -46,3 +46,17 @@ exports.verifyRefreshToken = (req, res, next) => { // Đang cấn, cần sửa
     return res.status(401).json({ message: 'Invalid refresh token' });
   }
 };
+
+exports.authorizeRole = (requiredRole) => {
+  return (req, res, next) => {
+    if (!req.account || !req.account.role) {
+      return res.status(403).json({ message: 'Access denied. No role provided.' });
+    }
+
+    if (req.account.role !== requiredRole) {
+      return res.status(403).json({ message: 'Access denied. Insufficient role.' });
+    }
+
+    next();
+  };
+};

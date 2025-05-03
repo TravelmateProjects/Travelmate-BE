@@ -15,6 +15,7 @@ const userRouters = require('./routes/userRouters');
 const userBlogRoutes = require('./routes/userBlogRouters');
 const userAlbumRoutes = require('./routes/userAlbumRouters');
 const albumImageRoutes = require('./routes/albumImageRouters');
+const ratingRoutes = require('./routes/ratingRouters');
 
 var app = express();
 
@@ -45,5 +46,6 @@ app.use('/users', userRouters);
 app.use('/userBlog', userBlogRoutes);
 app.use('/userAlbum', userAlbumRoutes);
 app.use('/albumImage', albumImageRoutes);
+app.use('/rating', ratingRoutes);
 
 module.exports = app;
