@@ -92,7 +92,7 @@ exports.login = async (req, res) => {
 
   try {
     const account = await Account.findOne({ username }).populate('userId');
-    if (!account || !account.accountStatus) return res.status(401).json({ message: 'Invalid login information' });
+    if (!account || !account.accountStatus) return res.status(401).json({ message: 'Invalid login information or your account locked' });
 
     const isMatch = await account.comparePassword(password);
     if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });

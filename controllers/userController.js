@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const cloudinary = require('../configs/cloudinary');
-
+const Account = require('../models/Account');
 
 // Cập nhật thông tin cá nhân trừ avatar và coverImage
 exports.updateProfile = async (req, res) => {
@@ -30,7 +30,6 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
-
 
 // Cập nhật ảnh bìa
 exports.updateCoverImage = async (req, res) => {
@@ -145,5 +144,65 @@ exports.updateAvatar = async (req, res) => {
   } catch (error) {
     console.error('Error updating avatar:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json({ message: 'Users retrieved successfully', data: users });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to retrieve users: ${error.message}` });
+  }
+};
+
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json({ message: 'User retrieved successfully', data: user });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to retrieve user: ${error.message}` });
+  }
+};
+
+exports.updateUserTitle = async (req, res) => {
+  try {
+    const { userId, title } = req.body;
+    const user = await User.findByIdAndUpdate(userId, { title }, { new: true });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json({ message: 'User title updated successfully', data: user });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to update user title: ${error.message}` });
+  }
+};
+
+exports.lockUser = async (req, res) => {
+  try {
+    const { userId } = req.params; // Extract userId from route parameter
+    const account = await Account.findOneAndUpdate({ userId }, { accountStatus: false }, { new: true }); // Update accountStatus in Account model
+    if (!account) {
+      return res.status(404).json({ message: 'Account not found' });
+    }
+    res.status(200).json({ message: 'User locked successfully', data: account });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to lock user: ${error.message}` });
+  }
+};
+
+exports.unlockUser = async (req, res) => {
+  try {
+    const { userId } = req.params; // Extract userId from route parameter
+    const account = await Account.findOneAndUpdate({ userId }, { accountStatus: true }, { new: true }); // Update accountStatus in Account model
+    if (!account) {
+      return res.status(404).json({ message: 'Account not found' });
+    }
+    res.status(200).json({ message: 'User unlocked successfully', data: account });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to unlock user: ${error.message}` });
   }
 };
