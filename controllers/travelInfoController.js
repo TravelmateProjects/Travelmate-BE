@@ -6,6 +6,12 @@ exports.createTravelInfo = async (req, res) => {
         const userId = req.account.userId; // Updated to use userId from req.account
         const { destination, arrivalDate, returnDate } = req.body;
 
+        // Check if userId already has a TravelInfo
+        const existingTravelInfo = await TravelInfo.findOne({ userId });
+        if (existingTravelInfo) {
+            return res.status(400).json({ message: 'User already has travel info' });
+        }
+
         // Check if returnDate is greater than arrivalDate
         if (new Date(returnDate) <= new Date(arrivalDate)) {
             return res.status(400).json({ message: 'Return date must be greater than arrival date' });
