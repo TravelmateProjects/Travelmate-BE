@@ -17,6 +17,7 @@ const userAlbumRoutes = require('./routes/userAlbumRouters');
 const albumImageRoutes = require('./routes/albumImageRouters');
 const ratingRoutes = require('./routes/ratingRouters');
 const reportRouters = require('./routes/reportRoters');
+const travelInfoRoutes = require('./routes/travelInfoRouters');
 
 var app = express();
 
@@ -49,5 +50,6 @@ app.use('/userAlbum', userAlbumRoutes);
 app.use('/albumImage', albumImageRoutes);
 app.use('/rating', ratingRoutes);
 app.use('/report', reportRouters);
+app.use('/travelInfo', travelInfoRoutes);
 
 module.exports = app;
