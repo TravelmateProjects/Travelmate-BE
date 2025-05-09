@@ -1,10 +1,15 @@
-const TravelInfo = require('../models/travelInfo');
+const TravelInfo = require('../models/TravelInfo');
 const User = require('../models/User');
 
 exports.createTravelInfo = async (req, res) => {
     try {
         const userId = req.account.userId; // Updated to use userId from req.account
         const { destination, arrivalDate, returnDate } = req.body;
+
+        // Check if returnDate is greater than arrivalDate
+        if (new Date(returnDate) <= new Date(arrivalDate)) {
+            return res.status(400).json({ message: 'Return date must be greater than arrival date' });
+        }
 
         // Create a new TravelInfo document
         const travelInfo = new TravelInfo({ userId, destination, arrivalDate, returnDate });
@@ -68,6 +73,11 @@ exports.updateTravelInfo = async (req, res) => {
     try {
         const userId = req.account.userId;
         const { destination, arrivalDate, returnDate } = req.body;
+
+        // Check if returnDate is greater than arrivalDate
+        if (new Date(returnDate) <= new Date(arrivalDate)) {
+            return res.status(400).json({ message: 'Return date must be greater than arrival date' });
+        }
 
         const updatedTravelInfo = await TravelInfo.findOneAndUpdate(
             { userId },
