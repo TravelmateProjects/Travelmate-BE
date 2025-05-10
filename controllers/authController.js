@@ -46,7 +46,12 @@ exports.register = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    res.status(201).json({ message: 'Registration successful', account: newAccount, user: newUser });
+    res.status(201).json({ 
+      message: 'Registration successful', 
+      accessToken, // add for testing
+      account: newAccount, 
+      user: newUser 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
