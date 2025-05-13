@@ -1,7 +1,6 @@
 const ChatRoom = require('../models/ChatRoom');
 const cloudinary = require('../configs/cloudinary');
 const Message = require('../models/Message');
-const User = require('../models/User');
 
 exports.getAllChatRooms = async (req, res) => {
     try {
