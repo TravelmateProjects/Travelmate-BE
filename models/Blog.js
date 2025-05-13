@@ -12,6 +12,15 @@ const userBlogSchema = new mongoose.Schema({
     // location: { type: [Number], index: '2dsphere' }, // Vị trí địa lý của ảnh (tùy chọn)
     uploadedAt: { type: Date, default: Date.now }, // Thời điểm tải ảnh lên (tùy chọn)
   }],
+  
+  //Todo: Làm sao để có thể cài tiến cho actor như công ty tour có thể đăng bài quảng cáo.
+  // isAd: { type: Boolean, default: false }, // Gắn cờ nếu là bài quảng cáo
+  // adTargetUrl: { type: String }, // URL đích nếu là quảng cáo
+  // video:[{
+  //   url: String, // URL của video trên Cloudinary hoặc nơi khác
+  //   publicId: { type: String },
+  //   uploadedAt: { type: Date, default: Date.now }, // Thời điểm tải video lên (tùy chọn)
+  // }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('UserBlog', userBlogSchema);

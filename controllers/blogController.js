@@ -1,4 +1,4 @@
-const UserBlog = require('../models/UserBlog');
+const Blog = require('../models/Blog');
 const cloudinary = require('../configs/cloudinary');
 
 // Tạo bài viết mới với nhiều ảnh
@@ -20,7 +20,7 @@ exports.createUserBlog = async (req, res) => {
             uploadedImages = await Promise.all(req.files.map(async (file) => {
                 const result = await new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream({
-                        folder: 'UserBlogImages',
+                        folder: 'BlogImages',
                     }, (error, result) => {
                         if (error) {
                             reject(error);
@@ -40,7 +40,7 @@ exports.createUserBlog = async (req, res) => {
         }
 
         // Create a new UserBlog document
-        const newUserBlog = new UserBlog({
+        const newUserBlog = new Blog({
             userId,
             content,
             address, // Add address to the document
@@ -65,7 +65,7 @@ exports.getUserBlogs = async (req, res) => {
         const userId = req.account.userId; // Extract userId from token
 
         // Fetch all blogs of the user
-        const userBlogs = await UserBlog.find({ userId }).sort({ createdAt: -1 });
+        const userBlogs = await Blog.find({ userId }).sort({ createdAt: -1 });
 
         res.status(200).json({
             message: 'User blogs fetched successfully',
@@ -82,7 +82,7 @@ exports.getUserBlogById = async (req, res) => {
         const { id } = req.params;
 
         // Fetch the blog by ID
-        const userBlog = await UserBlog.findById(id);
+        const userBlog = await Blog.findById(id);
 
         if (!userBlog) {
             return res.status(404).json({ message: 'Blog not found' });
@@ -104,7 +104,7 @@ exports.updateUserBlog = async (req, res) => {
         const { content, address } = req.body;
 
         // Find the blog by ID
-        const userBlog = await UserBlog.findById(id);
+        const userBlog = await Blog.findById(id);
 
         if (!userBlog) {
             return res.status(404).json({ message: 'Blog not found' });
@@ -141,7 +141,7 @@ exports.updateUserBlog = async (req, res) => {
             const uploadedImages = await Promise.all(req.files.map(async (file) => {
                 const result = await new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream({
-                        folder: 'UserBlogImages',
+                        folder: 'BlogImages',
                     }, (error, result) => {
                         if (error) {
                             reject(error);
@@ -180,7 +180,7 @@ exports.deleteUserBlog = async (req, res) => {
         const { id } = req.params;
 
         // Find the blog by ID
-        const userBlog = await UserBlog.findById(id);
+        const userBlog = await Blog.findById(id);
 
         if (!userBlog) {
             return res.status(404).json({ message: 'Blog not found' });
