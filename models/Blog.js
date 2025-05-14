@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const userBlogSchema = new mongoose.Schema({
+const blogSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   content: String,
   address: String, // Địa chỉ nơi người dùng đã đến (tùy chọn) vị trí đăng bài viết
@@ -14,13 +14,13 @@ const userBlogSchema = new mongoose.Schema({
   }],
   
   //Todo: Làm sao để có thể cài tiến cho actor như công ty tour có thể đăng bài quảng cáo.
-  // isAd: { type: Boolean, default: false }, // Gắn cờ nếu là bài quảng cáo
-  // adTargetUrl: { type: String }, // URL đích nếu là quảng cáo
-  // video:[{
-  //   url: String, // URL của video trên Cloudinary hoặc nơi khác
-  //   publicId: { type: String },
-  //   uploadedAt: { type: Date, default: Date.now }, // Thời điểm tải video lên (tùy chọn)
-  // }],
+  isAd: { type: Boolean, default: false }, // Gắn cờ nếu là bài quảng cáo
+  adTargetUrl: { type: String }, // URL đích nếu là quảng cáo
+  videos:[{
+    url: String, // URL của video trên Cloudinary hoặc nơi khác
+    publicId: { type: String },
+    uploadedAt: { type: Date, default: Date.now }, // Thời điểm tải video lên (tùy chọn)
+  }],
 }, { timestamps: true });
 
-module.exports = mongoose.model('UserBlog', userBlogSchema);
+module.exports = mongoose.model('Blog', blogSchema);

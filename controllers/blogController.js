@@ -1,50 +1,39 @@
 const Blog = require('../models/Blog');
 const cloudinary = require('../configs/cloudinary');
+const { uploadFilesToCloudinary } = require('../utils/cloudinaryUtils');
 
-// Tạo bài viết mới với nhiều ảnh
 exports.createUserBlog = async (req, res) => {
     try {
         const userId = req.account.userId; // Extract userId from token
         const { content, address } = req.body; // Include address from request body
 
         let uploadedImages = [];
+        let uploadedVideo = null;
 
-        // Check if files are uploaded
-        if (req.files && req.files.length > 0) {
-            // Limit the number of uploaded files to 10
-            if (req.files.length > 10) {
-                return res.status(400).json({ message: 'You can upload up to 10 files only' });
+        // Use the consolidated function for both images and videos
+        if (req.files) {
+            if (req.files.images) {
+                if (req.files.images.length > 10) {
+                    return res.status(400).json({ message: 'You can upload up to 10 images only' });
+                }
+                uploadedImages = await uploadFilesToCloudinary(req.files.images, 'Blog/Images');
             }
 
-            // Upload images to Cloudinary
-            uploadedImages = await Promise.all(req.files.map(async (file) => {
-                const result = await new Promise((resolve, reject) => {
-                    const uploadStream = cloudinary.uploader.upload_stream({
-                        folder: 'BlogImages',
-                    }, (error, result) => {
-                        if (error) {
-                            reject(error);
-                        } else {
-                            resolve(result);
-                        }
-                    });
-                    uploadStream.end(file.buffer);
-                });
-
-                return {
-                    url: result.secure_url,
-                    publicId: result.public_id,
-                    uploadedAt: new Date(),
-                };
-            }));
+            if (req.files.videos) {
+                if (req.files.videos.length > 1) {
+                    return res.status(400).json({ message: 'You can upload only 1 video' });
+                }
+                uploadedVideo = await uploadFilesToCloudinary(req.files.videos, 'Blog/Videos', 'video');
+            }
         }
 
-        // Create a new UserBlog document
+        // Ensure uploadedVideo is directly assigned to the video field
         const newUserBlog = new Blog({
             userId,
             content,
             address, // Add address to the document
             images: uploadedImages,
+            videos: uploadedVideo || [], // Directly assign uploadedVideo
         });
 
         // Save the document to the database
@@ -119,11 +108,40 @@ exports.updateUserBlog = async (req, res) => {
         if (content) userBlog.content = content;
         if (address) userBlog.address = address;
 
+        // Ensure files are deleted from Cloudinary after updating the database
+        if (!req.body.images || (Array.isArray(req.body.images) && req.body.images.length === 0)) {
+            for (const image of userBlog.images) {
+                if (image.publicId) {
+                    try {
+                        await cloudinary.uploader.destroy(image.publicId);
+                        // console.log(`Deleted image with publicId ${image.publicId} from Cloudinary`);
+                    } catch (error) {
+                        console.error(`Error deleting image with publicId ${image.publicId}:`, error);
+                    }
+                }
+            }
+            userBlog.images = [];
+        }
+
+        // Ensure video deletion logic is correctly implemented
+        if (!req.body.videos || (Array.isArray(req.body.videos) && req.body.videos.length === 0)) {
+            for (const video of userBlog.videos) {
+                if (video.publicId) {
+                    try {
+                        await cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' });
+                        // console.log(`Deleted video with publicId ${video.publicId} from Cloudinary`);
+                    } catch (error) {
+                        console.error(`Error deleting video with publicId ${video.publicId}:`, error);
+                    }
+                }
+            }
+            userBlog.videos = [];
+        }
+
         // Handle image updates if files are uploaded
-        if (req.files && req.files.length > 0) {
-            // Limit the number of uploaded files to 10
-            if (req.files.length > 10) {
-                return res.status(400).json({ message: 'You can upload up to 10 files only' });
+        if (req.files && req.files.images) {
+            if (req.files.images.length > 10) {
+                return res.status(400).json({ message: 'You can upload up to 10 images only' });
             }
 
             // Delete old images from Cloudinary
@@ -138,28 +156,28 @@ exports.updateUserBlog = async (req, res) => {
             }
 
             // Upload new images to Cloudinary
-            const uploadedImages = await Promise.all(req.files.map(async (file) => {
-                const result = await new Promise((resolve, reject) => {
-                    const uploadStream = cloudinary.uploader.upload_stream({
-                        folder: 'BlogImages',
-                    }, (error, result) => {
-                        if (error) {
-                            reject(error);
-                        } else {
-                            resolve(result);
-                        }
-                    });
-                    uploadStream.end(file.buffer);
-                });
+            userBlog.images = await uploadFilesToCloudinary(req.files.images, 'Blog/Images');
+        }
 
-                return {
-                    url: result.secure_url,
-                    publicId: result.public_id,
-                    uploadedAt: new Date(),
-                };
-            }));
+        // Handle video updates if files are uploaded
+        if (req.files && req.files.videos) {
+            if (req.files.videos.length > 1) {
+                return res.status(400).json({ message: 'You can upload only 1 video' });
+            }
 
-            userBlog.images = uploadedImages;
+            // Delete old video from Cloudinary
+            for (const video of userBlog.videos) {
+                if (video.publicId) {
+                    try {
+                        await cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' });
+                    } catch (error) {
+                        console.error(`Error deleting video with publicId ${video.publicId}:`, error);
+                    }
+                }
+            }
+
+            // Upload new video to Cloudinary
+            userBlog.videos = await uploadFilesToCloudinary(req.files.videos, 'Blog/Videos', 'video');
         }
 
         // Save the updated blog
@@ -196,8 +214,21 @@ exports.deleteUserBlog = async (req, res) => {
             if (image.publicId) {
                 try {
                     await cloudinary.uploader.destroy(image.publicId);
+                    // console.log(`Deleted image with publicId ${image.publicId} from Cloudinary`);
                 } catch (error) {
                     console.error(`Error deleting image with publicId ${image.publicId}:`, error);
+                }
+            }
+        }
+
+        // Delete videos from Cloudinary
+        for (const video of userBlog.videos) {
+            if (video.publicId) {
+                try {
+                    await cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' });
+                    // console.log(`Deleted video with publicId ${video.publicId} from Cloudinary`);
+                } catch (error) {
+                    console.error(`Error deleting video with publicId ${video.publicId}:`, error);
                 }
             }
         }
