@@ -102,17 +102,19 @@ exports.login = async (req, res) => {
     const isMatch = await account.comparePassword(password);
     if (!isMatch) return res.status(401).json({ message: 'Incorrect password' });
 
-    const accessToken = jwt.sign(
-      { accountId: account._id, userId: account.userId._id, role: account.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' }
-    );
+    const payload = {
+      accountId: account._id,
+      role: account.role
+    };
 
-    const refreshToken = jwt.sign(
-      { accountId: account._id, userId: account.userId._id, role: account.role },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Add userId to the payload if the account is not an admin
+    if (account.role !== 'admin') {
+      payload.userId = account.userId._id;
+    }
+
+    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
+
+    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 
     // Save the new refresh token to the database as part of the array with expiration date and user agent
     // account.refreshTokens.push({ 
@@ -141,9 +143,9 @@ exports.login = async (req, res) => {
         id: account._id,
         username: account.username,
         role: account.role,
-        userId: account.userId._id,
+        userId: account.role !== 'admin' ? account.userId._id : undefined,
       },
-      user: account.userId
+      user: account.role !== 'admin' ? account.userId : undefined
     });
   } catch (err) {
     console.error(err);
