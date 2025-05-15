@@ -20,6 +20,7 @@ const reportRouters = require('./routes/reportRoters');
 const travelInfoRoutes = require('./routes/travelInfoRouters');
 const matchUserRouters = require('./routes/matchUserRouters');
 const chatRouters = require('./routes/chatRouters');
+const travelPlanRouters = require('./routes/travelPlanRouters');
 
 var app = express();
 
@@ -55,5 +56,6 @@ app.use('/report', reportRouters);
 app.use('/travelInfo', travelInfoRoutes);
 app.use('/matchUser', matchUserRouters);
 app.use('/chat', chatRouters);
+app.use('/travelPlan', travelPlanRouters);
 
 module.exports = app;
