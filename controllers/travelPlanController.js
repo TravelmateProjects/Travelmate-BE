@@ -14,7 +14,7 @@ exports.createTravelPlan = async (req, res) => {
         // Check if startTime is not later than endTime for each plan
         for (const plan of plans) {
             if (plan.startTime && plan.endTime && plan.startTime > plan.endTime) {
-                return res.status(400).json({ message: `Start time cannot be later than end time for activity: ${plan.nameActivity}` });
+                return res.status(400).json({ message: `Start time cannot be later than end time for activity: ${plan.activityName}` });
             }
         }
 

@@ -7,7 +7,7 @@ const TravelPlanSchema = new mongoose.Schema({
     // returnDate: { type: Date, required: true },
     plans: [
         {
-            nameActivity: { type: String, required: true },
+            activityName: { type: String, required: true },
             description: String,
             location: String,
             price: Number,
