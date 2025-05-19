@@ -15,7 +15,8 @@ exports.authMiddleware = (req, res, next) => {
 
 exports.verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = authHeader && authHeader.split(' ')[1]; 
+  // const token = req.cookies && req.cookies.token; lấy từ cookie httpOnly
 
   if (!token) {
     return res.status(401).json({ message: 'No token provided' });
