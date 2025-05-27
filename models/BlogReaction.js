@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const statusReactionSchema = new mongoose.Schema({
+const blogReactionSchema = new mongoose.Schema({
   postId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'UserStatus',
@@ -21,4 +21,4 @@ const statusReactionSchema = new mongoose.Schema({
 // Đảm bảo mỗi người chỉ phản ứng một lần cho một bài viết
 statusReactionSchema.index({ postId: 1, userId: 1 }, { unique: true });
 
-module.exports = mongoose.model('StatusReaction', statusReactionSchema);
+module.exports = mongoose.model('BlogReaction', blogReactionSchema);

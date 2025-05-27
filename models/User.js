@@ -23,28 +23,11 @@ const userSchema = new mongoose.Schema({
   travelStatus: { type: Boolean, default: false },
   currentLocation: { type: String },
   payment: { type: String },
-  connections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Danh sách người dùng đã kết nối(bạn bè)
+  connections: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
+  }], // Danh sách người dùng đã kết nối(bạn bè)
   title: { type: String }
 }, { timestamps: true });
 
-// const updateAvatar = async (userId, newAvatarUrl) => {
-//   try {
-//     const user = await User.findByIdAndUpdate(
-//       userId,
-//       { avatar: newAvatarUrl },
-//       { new: true } // Return the updated document
-//     );
-
-//     if (!user) {
-//       throw new Error('User not found');
-//     }
-
-//     return user;
-//   } catch (error) {
-//     console.error('Error updating avatar:', error);
-//     throw error;
-//   }
-// };
-
 module.exports = mongoose.model('User', userSchema);
-// module.exports.updateAvatar = updateAvatar;
