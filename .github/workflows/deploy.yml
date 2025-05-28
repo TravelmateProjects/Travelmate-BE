@@ -53,11 +53,8 @@ jobs:
           body: |
             🎉 Travelmate backend has been successfully deployed to EC2!
 
-             -Git Branch: master  
-             -Docker Compose: Build & Up successful  
-             -Time: ${{ github.event.head_commit.timestamp }}
-             -Access: http://${{ secrets.EC2_HOST }}:5000
-
-
-            Best regards,  
-            GitHub Actions
+            ➤ Git Branch: master  
+            ➤ Docker Compose: Build & Up successful  
+            ➤ Time: ${{ github.event.head_commit.timestamp }}
+            ➤ Access: http://${{ secrets.EC2_HOST }}:5000
+            
