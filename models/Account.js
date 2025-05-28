@@ -18,6 +18,10 @@ const accountSchema = new mongoose.Schema({
   //   return this.role === 'user';
   // }},
   // refreshTokens: [refreshTokenSchema]
+  verificationOtp: {
+    code: { type: String},
+    expiresAt: { type: Date}
+  }
 }, { timestamps: true });
 
 // Auto hash password before save
