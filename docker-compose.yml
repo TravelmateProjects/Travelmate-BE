@@ -1,19 +1,16 @@
-version: '3.8'
-
 services:
 
   api:
+    container_name: Travelmate-api
     build: .
+    command: npm start
     ports:
       - "5000:5000"
     # environment:
     #   - MONGO_URI=<Your_MongoDB_Atlas_URI>
     env_file: .env
     restart: unless-stopped
-    depends_on: []
-    # volumes:
-    #   - ./bin/cert.pem:/etc/ssl/certs/cert.pem
-    #   - ./bin/key.pem:/etc/ssl/private/key.pem
-    # command: ["node", "bin/www"]
-
-volumes: {}
+    # depends_on: []
+    volumes:
+      # - .:/usr/src/app
+      - /usr/src/app/node_modules
