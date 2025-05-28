@@ -1,0 +1,63 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master
+  # pull_request:
+  #   branches:
+  #     - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH and deploy on EC2 with Docker Compose
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/Travelmate/Travelmate-BE
+
+            # Pull latest code
+            git pull origin master
+
+            # Stop and remove old containers
+            docker-compose down
+
+            # Rebuild and run new containers
+            docker-compose up --build -d
+
+            # Clean up unused images (old versions)
+            docker image prune -f
+
+      - name: Get current time
+        id: get_time
+        run: echo "time=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Send email notification on success
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: ✅ Travelmate Backend Deployment Successful At ${{ steps.get_time.outputs.time }}
+          to: ${{ secrets.RECEIVER_EMAIL }}
+          from: ${{ secrets.MAIL_USERNAME }}
+          body: |
+            🎉 Travelmate backend has been successfully deployed to EC2!
+
+             -Git Branch: master  
+             -Docker Compose: Build & Up successful  
+             -Time: ${{ github.event.head_commit.timestamp }}
+             -Access: http://${{ secrets.EC2_HOST }}:5000
+
+
+            Best regards,  
+            GitHub Actions
