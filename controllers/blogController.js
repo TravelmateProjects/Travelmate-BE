@@ -53,8 +53,10 @@ exports.getUserBlogs = async (req, res) => {
     try {
         const userId = req.account.userId; // Extract userId from token
 
-        // Fetch all blogs of the user
-        const userBlogs = await Blog.find({ userId }).sort({ createdAt: -1 });
+        // Fetch all blogs of the user, populate user info
+        const userBlogs = await Blog.find({ userId })
+            .populate('userId', 'fullName email avatar') // Lấy thông tin user cơ bản
+            .sort({ createdAt: -1 });
 
         res.status(200).json({
             message: 'User blogs fetched successfully',

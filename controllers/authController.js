@@ -113,7 +113,6 @@ exports.login = async (req, res) => {
     }
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
-
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 
     // Save the new refresh token to the database as part of the array with expiration date and user agent
@@ -143,9 +142,9 @@ exports.login = async (req, res) => {
         id: account._id,
         username: account.username,
         role: account.role,
-        userId: account.role !== 'admin' ? account.userId._id : undefined,
+        userId: account.userId ? account.userId._id : undefined,
       },
-      user: account.role !== 'admin' ? account.userId : undefined
+      user: account.userId || undefined
     });
   } catch (err) {
     console.error(err);
