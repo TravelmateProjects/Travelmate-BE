@@ -1,6 +1,8 @@
 const Account = require('../models/Account');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 exports.register = async (req, res) => {
   const { fullName, email, username, password } = req.body;
@@ -13,42 +15,60 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Email or username already exists.' });
     }
 
+    // Tạo mã xác nhận
+    const verificationCode = crypto.randomInt(100000, 999999).toString();
+
+    // Tạo user
     const newUser = new User({ fullName, email });
     await newUser.save();
 
-    const newAccount = new Account({ username, password, userId: newUser._id, refreshTokens: [] });
+    // Tạo account với mã xác nhận và trạng thái chưa xác thực
+    const newAccount = new Account({ 
+      username, 
+      password, 
+      userId: newUser._id, 
+      refreshTokens: [],
+      verificationCode,
+      accountStatus: false
+    });
     await newAccount.save();
 
-    const accessToken = jwt.sign(
-      { accountId: newAccount._id, userId: newUser._id, role: newAccount.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' }
-    );
-
-    const refreshToken = jwt.sign(
-      { accountId: newAccount._id, userId: newUser._id, role: newAccount.role },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    // Save refresh token to the database as part of the refreshTokens array
-    // newAccount.refreshTokens.push({ token: refreshToken });
-    // await newAccount.save();
-
-    res.cookie('accessToken', accessToken, { 
-      httpOnly: true, 
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 minutes
+    // Gửi email xác nhận
+    const transporter = nodemailer.createTransport({
+      service: 'gmail', // hoặc dịch vụ email của bạn
+      auth: {
+        user: process.env.EMAIL_USER, // email gửi
+        pass: process.env.EMAIL_PASS, // mật khẩu ứng dụng
+      },
     });
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true, 
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Xác nhận tài khoản Travelmate',
+      html: `
+        <div style="font-family: Arial, sans-serif; background: #f6f6f6; padding: 32px;">
+          <div style="max-width: 480px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
+            <div style="text-align:center; margin-bottom: 24px;">
+              <img src="https://res.cloudinary.com/dvoyjeco3/image/upload/v1748492096/Assets/Images/w4gsxcmtnq5sinujgmwd.png" alt="Travelmate Logo" style="width: 180px; height: 60px; object-fit: contain; margin-bottom: 8px;" />
+              <h2 style="color: #2a7be4; margin: 0;">Chào mừng bạn đến với Travelmate!</h2>
+            </div>
+            <p style="font-size: 16px; color: #222; margin-bottom: 18px;">Xin chào <b>${fullName}</b>,</p>
+            <p style="font-size: 16px; color: #222; margin-bottom: 18px;">Cảm ơn bạn đã đăng ký tài khoản tại <b>Travelmate</b>.<br>Để hoàn tất đăng ký, vui lòng sử dụng mã xác nhận bên dưới:</p>
+            <div style="text-align:center; margin: 32px 0;">
+              <span style="display:inline-block; font-size: 32px; letter-spacing: 8px; color: #fff; background: #2a7be4; padding: 12px 32px; border-radius: 8px; font-weight: bold;">${verificationCode}</span>
+            </div>
+            <p style="font-size: 15px; color: #555;">Nếu bạn không thực hiện đăng ký này, vui lòng bỏ qua email này.</p>
+            <div style="margin-top: 32px; text-align:center; color: #aaa; font-size: 13px;">&copy; ${new Date().getFullYear()} Travelmate</div>
+          </div>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
 
     res.status(201).json({ 
-      message: 'Registration successful', 
-      accessToken, // add for testing
+      message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.',
       account: newAccount, 
       user: newUser 
     });
@@ -113,7 +133,6 @@ exports.login = async (req, res) => {
     }
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
-
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 
     // Save the new refresh token to the database as part of the array with expiration date and user agent
@@ -143,9 +162,9 @@ exports.login = async (req, res) => {
         id: account._id,
         username: account.username,
         role: account.role,
-        userId: account.role !== 'admin' ? account.userId._id : undefined,
+        userId: account.userId ? account.userId._id : undefined,
       },
-      user: account.role !== 'admin' ? account.userId : undefined
+      user: account.userId || undefined
     });
   } catch (err) {
     console.error(err);
@@ -275,6 +294,107 @@ exports.logout = (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error during logout' });
+  }
+};
+
+exports.verifyAccount = async (req, res) => {
+  const { username, code } = req.body;
+  try {
+    const account = await Account.findOne({ username });
+    if (!account) {
+      return res.status(404).json({ message: 'Tài khoản không tồn tại.' });
+    }
+    if (account.accountStatus) {
+      return res.status(400).json({ message: 'Tài khoản đã được xác thực.' });
+    }
+    if (account.verificationCode !== code) {
+      return res.status(400).json({ message: 'Mã xác nhận không đúng.' });
+    }
+    account.accountStatus = true;
+    account.verificationCode = undefined;
+    await account.save();
+    res.status(200).json({ message: 'Xác thực tài khoản thành công!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server khi xác thực tài khoản.' });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'Email không tồn tại.' });
+    }
+    const account = await Account.findOne({ userId: user._id });
+    if (!account) {
+      return res.status(404).json({ message: 'Tài khoản không tồn tại.' });
+    }
+    // Tạo mã OTP mới
+    const otp = crypto.randomInt(100000, 999999).toString();
+    account.verificationCode = otp;
+    await account.save();
+
+    // Gửi email OTP
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Yêu cầu đặt lại mật khẩu Travelmate',
+      html: `
+        <div style="font-family: Arial, sans-serif; background: #f6f6f6; padding: 32px;">
+          <div style="max-width: 480px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border: 1px solid #e0e0e0; padding: 32px 24px;">
+            <div style="text-align:center; margin-bottom: 24px;">
+              <img src="https://res.cloudinary.com/dvoyjeco3/image/upload/v1748492096/Assets/Images/w4gsxcmtnq5sinujgmwd.png" alt="Travelmate Logo" style="width: 180px; height: 60px; object-fit: contain; margin-bottom: 8px;" />
+              <h2 style="color: #2a7be4; margin: 0;">Đặt lại mật khẩu Travelmate</h2>
+            </div>
+            <p style="font-size: 16px; color: #222; margin-bottom: 18px;">Xin chào <b>${user.fullName}</b>,</p>
+            <p style="font-size: 16px; color: #222; margin-bottom: 18px;">Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản <b>Travelmate</b>.<br>Vui lòng sử dụng mã OTP bên dưới để xác nhận:</p>
+            <div style="text-align:center; margin: 32px 0;">
+              <span style="display:inline-block; font-size: 32px; letter-spacing: 8px; color: #fff; background: #2a7be4; padding: 12px 32px; border-radius: 8px; font-weight: bold;">${otp}</span>
+            </div>
+            <p style="font-size: 15px; color: #555;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
+            <div style="margin-top: 32px; text-align:center; color: #aaa; font-size: 13px;">&copy; ${new Date().getFullYear()} Travelmate</div>
+          </div>
+        </div>
+      `
+    };
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Đã gửi mã OTP về email. Vui lòng kiểm tra hộp thư.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server khi gửi OTP.' });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'Email không tồn tại.' });
+    }
+    const account = await Account.findOne({ userId: user._id });
+    if (!account) {
+      return res.status(404).json({ message: 'Tài khoản không tồn tại.' });
+    }
+    if (account.verificationCode !== otp) {
+      return res.status(400).json({ message: 'Mã OTP không đúng.' });
+    }
+    account.password = newPassword;
+    account.verificationCode = undefined;
+    await account.save();
+    res.status(200).json({ message: 'Đổi mật khẩu thành công!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server khi đổi mật khẩu.' });
   }
 };
 
