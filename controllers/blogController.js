@@ -49,6 +49,23 @@ exports.createUserBlog = async (req, res) => {
     }
 };
 
+exports.getAllBlogs = async (req, res) => {
+    try {
+        // Fetch all blogs, populate user info
+        const blogs = await Blog.find({})
+            .populate('userId', 'fullName email avatar') // Lấy thông tin user cơ bản
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            message: 'All blogs fetched successfully',
+            blogs,
+        });
+    } catch (error) {
+        console.error('Error fetching all blogs:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 exports.getUserBlogs = async (req, res) => {
     try {
         const userId = req.account.userId; // Extract userId from token

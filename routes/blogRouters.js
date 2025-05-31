@@ -6,6 +6,7 @@ const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+router.get('/all', blogController.getAllBlogs);
 router.get('/', verifyToken, blogController.getUserBlogs); // Lấy danh sách bài viết của người dùng
 router.get('/:id', verifyToken, blogController.getUserBlogById); // Lấy thông tin bài viết theo ID
 router.post('/', verifyToken, upload.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 1 }]), blogController.createUserBlog); // Tạo bài viết mới với nhiều ảnh và một video
