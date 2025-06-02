@@ -206,3 +206,33 @@ exports.unlockUser = async (req, res) => {
     res.status(500).json({ message: `Failed to unlock user: ${error.message}` });
   }
 };
+
+// Cập nhật trạng thái du lịch (travelStatus)
+exports.updateTravelStatus = async (req, res) => {
+  try {
+    const userId = req.account.userId; // Lấy userId từ token
+    const { travelStatus } = req.body;
+
+    if (typeof travelStatus !== 'boolean') {
+      return res.status(400).json({ message: 'travelStatus must be boolean (true/false)' });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { travelStatus },
+      { new: true } // Trả về tài liệu đã cập nhật
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      message: 'Travel status updated successfully',
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error('Error updating travel status:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
