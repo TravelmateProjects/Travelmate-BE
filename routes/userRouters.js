@@ -9,6 +9,7 @@ const upload = multer({ storage });
 router.put('/updateProfile', verifyToken, userController.updateProfile); // Cập nhật thông tin cá nhân trừ avatar và coverImage
 router.put('/updateCoverImage', verifyToken, upload.single('image'), userController.updateCoverImage); // Cập nhật ảnh bìa
 router.put('/updateAvatar', verifyToken, upload.single('image'), userController.updateAvatar);
+router.put('/updateTravelStatus', verifyToken, userController.updateTravelStatus); // Cập nhật trạng thái du lịch
 
 router.get('/getAllUsers', verifyToken, authorizeRole('admin'), userController.getAllUsers); // Lấy tất cả người dùng
 router.get('/getUserById/:userId', verifyToken, userController.getUserById); // Lấy thông tin người dùng theo ID (tạm thời dùng chung)
