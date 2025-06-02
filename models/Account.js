@@ -12,16 +12,18 @@ const accountSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
-  accountStatus: { type: Boolean, default: true },
+  accountStatus: { type: Boolean, default: false },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // sẽ ra sao nếu là tài khoản admin?
   // userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: function() {
   //   return this.role === 'user';
   // }},
   // refreshTokens: [refreshTokenSchema]
-  verificationOtp: {
-    code: { type: String},
-    expiresAt: { type: Date}
-  }
+  
+  verificationOtp:{ 
+    code: { type: String },
+    expiresAt: { type: Date },
+  }, // Mã xác nhận email
+  
 }, { timestamps: true });
 
 // Auto hash password before save
