@@ -17,6 +17,7 @@ exports.register = async (req, res) => {
 
     // Tạo mã xác nhận
     const verificationCode = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
 
     // Tạo user
     const newUser = new User({ fullName, email });
@@ -28,7 +29,7 @@ exports.register = async (req, res) => {
       password, 
       userId: newUser._id, 
       refreshTokens: [],
-      verificationCode,
+      verificationOtp: { code: verificationCode, expiresAt },
       accountStatus: false
     });
     await newAccount.save();
@@ -307,11 +308,14 @@ exports.verifyAccount = async (req, res) => {
     if (account.accountStatus) {
       return res.status(400).json({ message: 'Tài khoản đã được xác thực.' });
     }
-    if (account.verificationCode !== code) {
+    if (!account.verificationOtp || account.verificationOtp.code !== code) {
       return res.status(400).json({ message: 'Mã xác nhận không đúng.' });
     }
+    if (account.verificationOtp.expiresAt && account.verificationOtp.expiresAt < Date.now()) {
+      return res.status(400).json({ message: 'Mã xác nhận đã hết hạn.' });
+    }
     account.accountStatus = true;
-    account.verificationCode = undefined;
+    account.verificationOtp = undefined;
     await account.save();
     res.status(200).json({ message: 'Xác thực tài khoản thành công!' });
   } catch (err) {
@@ -333,7 +337,8 @@ exports.forgotPassword = async (req, res) => {
     }
     // Tạo mã OTP mới
     const otp = crypto.randomInt(100000, 999999).toString();
-    account.verificationCode = otp;
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
+    account.verificationOtp = { code: otp, expiresAt };
     await account.save();
 
     // Gửi email OTP
@@ -374,6 +379,31 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
+exports.verifyForgotPasswordOtp = async (req, res) => {
+  const { email, otp } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'Email không tồn tại.' });
+    }
+    const account = await Account.findOne({ userId: user._id });
+    if (!account) {
+      return res.status(404).json({ message: 'Tài khoản không tồn tại.' });
+    }
+    if (!account.verificationOtp || account.verificationOtp.code !== otp) {
+      return res.status(400).json({ message: 'Mã OTP không đúng.' });
+    }
+    if (account.verificationOtp.expiresAt && account.verificationOtp.expiresAt < Date.now()) {
+      return res.status(400).json({ message: 'Mã OTP đã hết hạn.' });
+    }
+    // Không xóa OTP ở đây, chỉ xác thực thành công
+    res.status(200).json({ message: 'OTP hợp lệ.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server khi xác thực OTP.' });
+  }
+};
+
 exports.resetPassword = async (req, res) => {
   const { email, otp, newPassword } = req.body;
   try {
@@ -385,11 +415,18 @@ exports.resetPassword = async (req, res) => {
     if (!account) {
       return res.status(404).json({ message: 'Tài khoản không tồn tại.' });
     }
-    if (account.verificationCode !== otp) {
+    if (!account.verificationOtp || account.verificationOtp.code !== otp) {
       return res.status(400).json({ message: 'Mã OTP không đúng.' });
     }
+    if (account.verificationOtp.expiresAt && account.verificationOtp.expiresAt < Date.now()) {
+      return res.status(400).json({ message: 'Mã OTP đã hết hạn.' });
+    }
+    if (!newPassword || newPassword === '___dummy___') {
+      // FE gửi newPassword dummy để chỉ xác thực OTP, không đổi mật khẩu
+      return res.status(400).json({ message: 'Vui lòng nhập mật khẩu mới.' });
+    }
     account.password = newPassword;
-    account.verificationCode = undefined;
+    account.verificationOtp = undefined;
     await account.save();
     res.status(200).json({ message: 'Đổi mật khẩu thành công!' });
   } catch (err) {

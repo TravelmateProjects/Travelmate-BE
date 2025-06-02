@@ -19,7 +19,10 @@ const accountSchema = new mongoose.Schema({
   // }},
   // refreshTokens: [refreshTokenSchema]
   
-  verificationCode: { type: String }, // Mã xác nhận email
+  verificationOtp:{ 
+    code: { type: String },
+    expiresAt: { type: Date },
+  }, // Mã xác nhận email
   
 }, { timestamps: true });
 
