@@ -194,7 +194,7 @@ exports.refreshToken = async (req, res) => {
     const newAccessToken = jwt.sign(
       { accountId: decoded.accountId, userId: decoded.userId, role: decoded.role },
       process.env.JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '3h' }
     );
 
     const newRefreshToken = jwt.sign(
