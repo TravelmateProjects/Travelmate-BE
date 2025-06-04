@@ -2,8 +2,7 @@ const User = require('../models/User');
 const TravelInfo = require('../models/TravelInfo');
 
 exports.findMatchingUsers = async (req, res) => {
-  const { userId } = req.params;
-
+  const userId = req.account.userId;
   try {
     const user = await User.findById(userId);
     if (!user || !user.travelStatus) {
@@ -21,21 +20,19 @@ exports.findMatchingUsers = async (req, res) => {
     startDate.setDate(startDate.getDate() - 2);
     endDate.setDate(endDate.getDate() + 2);
 
-    // Find other users with the same travelStatus, same destination, and arrival dates within ±2 days
     const matchedTravelInfos = await TravelInfo.find({
       destination,
       arrivalDate: { $gte: startDate, $lte: endDate },
-      userId: { $ne: userId }
+      userId: { $ne: userId } 
     });
-
+    
     const matchedUserIds = matchedTravelInfos.map(info => info.userId);
 
     let matchedUsers = await User.find({
       _id: { $in: matchedUserIds },
       travelStatus: true
-    }); // }).populate('hobbies fullName');
+    }); 
 
-    // Prioritize users with similar hobbies
     const userHobbies = user.hobbies || [];
 
     matchedUsers = matchedUsers.map(match => {
@@ -46,7 +43,6 @@ exports.findMatchingUsers = async (req, res) => {
       };
     });
 
-    // Sort by the number of common hobbies (most to least)
     matchedUsers.sort((a, b) => b.commonHobbiesCount - a.commonHobbiesCount);
 
     res.json({
@@ -57,6 +53,10 @@ exports.findMatchingUsers = async (req, res) => {
         fullName: item.user.fullName,
         avatar: item.user.avatar,
         hobbies: item.user.hobbies,
+        hometown: item.user.hometown,
+        dob: item.user.dob,
+        rate: item.user.rate,
+        description: item.user.description,
         commonHobbiesCount: item.commonHobbiesCount
       }))
     });
