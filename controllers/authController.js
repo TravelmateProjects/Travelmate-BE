@@ -133,7 +133,7 @@ exports.login = async (req, res) => {
       payload.userId = account.userId._id;
     }
 
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '3h' });
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 
     // Save the new refresh token to the database as part of the array with expiration date and user agent
