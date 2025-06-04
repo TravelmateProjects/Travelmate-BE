@@ -9,6 +9,7 @@ var debug = require('debug')('travelmate-be:server');
 var http = require('http');
 // var https = require('https');
 var fs = require('fs');
+const initSocket = require('../configs/socket');
 
 /**
  * Get port from environment and store in Express.
@@ -27,6 +28,12 @@ var server = http.createServer(app);
 //     cert: fs.readFileSync(__dirname + '/cert.pem')
 // };
 // var server = https.createServer(httpsOptions, app);
+
+const socketIo = require('socket.io');
+const io = socketIo(server, { cors: { origin: '*' } });
+app.set('io', io);
+
+initSocket(io);
 
 /**
  * Listen on provided port, on all network interfaces.

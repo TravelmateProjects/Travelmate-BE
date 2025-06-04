@@ -110,6 +110,13 @@ exports.sendMessage = async (req, res) => {
         });
 
         await message.save();
+
+        // Emit socket event to room for real-time update
+        const io = req.app.get('io');
+        if (io) {
+            io.to(id).emit('newMessage', message);
+        }
+
         res.status(201).json({ message: 'Message sent successfully', data: message });
     } catch (error) {
         res.status(500).json({ message: 'Error sending message', error: error.message });
