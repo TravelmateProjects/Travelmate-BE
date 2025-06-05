@@ -6,7 +6,7 @@ const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-router.get('/', chatController.getAllChatRooms); // Lấy danh sách tất cả phòng chat(test)
+// router.get('/', chatController.getAllChatRooms); // Lấy danh sách tất cả phòng chat(test)
 router.get('/', verifyToken, authorizeRole('user'), chatController.getChatRooms); // Lấy danh sách phòng chat người dùng
 router.get('/:id', verifyToken, authorizeRole('user'), chatController.getChatRoomById); // Lấy thông tin phòng chat theo ID
 router.post('/', verifyToken, authorizeRole('user'), chatController.createChatRoom); // Tạo phòng chat mới

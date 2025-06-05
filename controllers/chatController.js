@@ -4,7 +4,7 @@ const Message = require('../models/Message');
 
 exports.getAllChatRooms = async (req, res) => {
     try {
-        const chatRooms = await ChatRoom.find().populate('participants', 'name email');
+        const chatRooms = await ChatRoom.find().populate('participants', 'fullName email avatar');
         res.status(200).json({ message: 'Get chatrooms successful', data: chatRooms });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching chat rooms', error: error.message });
@@ -13,9 +13,41 @@ exports.getAllChatRooms = async (req, res) => {
 
 exports.getChatRooms = async (req, res) => {
     try {
-        const userId = req.account.userId; 
-        const chatRooms = await ChatRoom.find({ participants: userId }).populate('participants', 'name email');
-        res.status(200).json({ message: 'Get chatrooms successful', data: chatRooms });
+        const userId = req.account.userId;
+        const chatRooms = await ChatRoom.find({ participants: userId }).populate('participants', 'fullName email avatar');
+        
+        // Get lastMessage for each chatRoom
+        const chatRoomsWithLastMessage = await Promise.all(
+            chatRooms.map(async (chatRoom) => {
+                // Find the latest message in this chatRoom
+                const lastMessage = await Message.findOne({ chatRoomId: chatRoom._id })
+                    .populate('sender', 'fullName email avatar')
+                    .sort({ createdAt: -1 }) // Sort to get the most recent message
+                    .lean(); // optimize performance by using lean()
+                
+                return {
+                    ...chatRoom.toObject(),
+                    lastMessage: lastMessage ? {
+                        _id: lastMessage._id,
+                        chatRoomId: lastMessage.chatRoomId,
+                        content: lastMessage.content,
+                        sender: lastMessage.sender,
+                        createdAt: lastMessage.createdAt,
+                        attachments: lastMessage.attachments || []
+                    } : null
+                };
+            })
+        );
+        
+        // Sort chatRooms by lastMessage time (newest first)
+        chatRoomsWithLastMessage.sort((a, b) => {
+            if (!a.lastMessage && !b.lastMessage) return 0;
+            if (!a.lastMessage) return 1;
+            if (!b.lastMessage) return -1;
+            return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
+        });
+        
+        res.status(200).json({ message: 'Get chatrooms successful', data: chatRoomsWithLastMessage });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching user chat rooms', error: error.message });
     }
@@ -24,7 +56,7 @@ exports.getChatRooms = async (req, res) => {
 exports.getChatRoomById = async (req, res) => {
     try {
         const { id } = req.params;
-        const chatRoom = await ChatRoom.findById(id).populate('participants', 'name email');
+        const chatRoom = await ChatRoom.findById(id).populate('participants', 'fullName email avatar');
         if (!chatRoom) {
             return res.status(404).json({ message: 'Chat room not found' });
         }
@@ -100,7 +132,9 @@ exports.sendMessage = async (req, res) => {
                     });
                 }
             }
-        }        const message = new Message({
+        }
+
+        const message = new Message({
             chatRoomId: id,
             sender,
             content,
@@ -108,9 +142,8 @@ exports.sendMessage = async (req, res) => {
         });
 
         await message.save();
-
         // Populate the message with sender info before emitting
-        const populatedMessage = await Message.findById(message._id).populate('sender', 'name email');
+        const populatedMessage = await Message.findById(message._id).populate('sender', 'fullName email avatar');
 
         // Emit socket event to room for real-time update
         const io = req.app.get('io');
@@ -127,7 +160,7 @@ exports.sendMessage = async (req, res) => {
 exports.getMessages = async (req, res) => {
     try {
         const { id } = req.params; // Chat room ID
-        const messages = await Message.find({ chatRoomId: id }).populate('sender', 'name email').sort({ createdAt: -1 });
+        const messages = await Message.find({ chatRoomId: id }).populate('sender', 'fullName email avatar').sort({ createdAt: -1 });
         res.status(200).json({ message: 'Messages retrieved successfully', data: messages });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving messages', error: error.message });
