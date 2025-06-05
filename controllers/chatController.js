@@ -100,9 +100,7 @@ exports.sendMessage = async (req, res) => {
                     });
                 }
             }
-        }
-
-        const message = new Message({
+        }        const message = new Message({
             chatRoomId: id,
             sender,
             content,
@@ -111,13 +109,16 @@ exports.sendMessage = async (req, res) => {
 
         await message.save();
 
+        // Populate the message with sender info before emitting
+        const populatedMessage = await Message.findById(message._id).populate('sender', 'name email');
+
         // Emit socket event to room for real-time update
         const io = req.app.get('io');
         if (io) {
-            io.to(id).emit('newMessage', message);
+            io.to(id).emit('newMessage', populatedMessage);
         }
 
-        res.status(201).json({ message: 'Message sent successfully', data: message });
+        res.status(201).json({ message: 'Message sent successfully', data: populatedMessage });
     } catch (error) {
         res.status(500).json({ message: 'Error sending message', error: error.message });
     }
