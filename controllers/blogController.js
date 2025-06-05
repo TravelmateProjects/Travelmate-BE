@@ -81,7 +81,7 @@ exports.getUserBlogs = async (req, res) => {
   try {
     const userId = req.account.userId; // Lấy userId từ token
     if (!userId) {
-      return res.status(400).json({ message: "Yêu cầu ID người dùng" });
+      return res.status(400).json({ message: "User ID is required" });
     }
 
     console.log(`Fetching blogs for userId: ${userId}`); // Debug log
@@ -90,12 +90,12 @@ exports.getUserBlogs = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.status(200).json({
-      message: "Lấy danh sách blog của người dùng thành công",
+      message: "User blogs fetched successfully",
       blogs: userBlogs || [], // Trả về mảng rỗng nếu không có blog
     });
   } catch (error) {
-    console.error("Lỗi khi lấy danh sách blog:", error);
-    res.status(500).json({ message: "Lỗi server nội bộ" });
+    console.error("Error fetching user blogs:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -109,48 +109,67 @@ exports.getUserBlogById = async (req, res) => {
     );
 
     if (!userBlog) {
-      return res.status(404).json({ message: "Không tìm thấy bài blog" });
+      return res.status(404).json({ message: "Blog not found" });
     }
 
     res.status(200).json({
-      message: "Lấy bài blog thành công",
+      message: "Blog fetched successfully",
       blog: userBlog,
     });
   } catch (error) {
-    console.error("Lỗi khi lấy bài blog theo ID:", error);
-    res.status(500).json({ message: "Lỗi server nội bộ" });
+    console.error("Error fetching blog by ID:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
 exports.updateUserBlog = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, address } = req.body;
+    const { content, address, existingImagePublicIds, existingVideoPublicIds } =
+      req.body;
 
-    // Find the blog by ID
+    // console.log("Update blog request:", {
+    //   id,
+    //   content,
+    //   address,
+    //   existingImagePublicIds,
+    //   existingVideoPublicIds,
+    //   files: req.files ? Object.keys(req.files) : null,
+    // });
+
     const userBlog = await Blog.findById(id);
 
     if (!userBlog) {
       return res.status(404).json({ message: "Blog not found" });
     }
 
-    // Check if the user is the owner of the blog
     if (userBlog.userId.toString() !== req.account.userId) {
       return res
         .status(403)
         .json({ message: "You are not authorized to update this blog" });
     }
 
-    // Update content and address
     if (content) userBlog.content = content;
     if (address) userBlog.address = address;
 
-    // Ensure files are deleted from Cloudinary after updating the database
-    if (
-      !req.body.images ||
-      (Array.isArray(req.body.images) && req.body.images.length === 0)
-    ) {
-      for (const image of userBlog.images) {
+    const keepImagePublicIds = existingImagePublicIds
+      ? JSON.parse(existingImagePublicIds)
+      : [];
+    let keepVideoPublicIds = existingVideoPublicIds
+      ? JSON.parse(existingVideoPublicIds)
+      : [];
+
+    // console.log("Parsed public IDs:", { keepImagePublicIds, keepVideoPublicIds });
+
+    if (userBlog.images && userBlog.images.length > 0) {
+      const imagesToKeep = userBlog.images.filter((image) =>
+        keepImagePublicIds.includes(image.publicId)
+      );
+      const imagesToDelete = userBlog.images.filter(
+        (image) => !keepImagePublicIds.includes(image.publicId)
+      );
+
+      for (const image of imagesToDelete) {
         if (image.publicId) {
           try {
             await cloudinary.uploader.destroy(image.publicId);
@@ -163,15 +182,19 @@ exports.updateUserBlog = async (req, res) => {
           }
         }
       }
-      userBlog.images = [];
+
+      userBlog.images = imagesToKeep;
     }
 
-    // Ensure video deletion logic is correctly implemented
-    if (
-      !req.body.videos ||
-      (Array.isArray(req.body.videos) && req.body.videos.length === 0)
-    ) {
-      for (const video of userBlog.videos) {
+    if (userBlog.videos && userBlog.videos.length > 0) {
+      const videosToKeep = userBlog.videos.filter((video) =>
+        keepVideoPublicIds.includes(video.publicId)
+      );
+      const videosToDelete = userBlog.videos.filter(
+        (video) => !keepVideoPublicIds.includes(video.publicId)
+      );
+
+      for (const video of videosToDelete) {
         if (video.publicId) {
           try {
             await cloudinary.uploader.destroy(video.publicId, {
@@ -186,69 +209,47 @@ exports.updateUserBlog = async (req, res) => {
           }
         }
       }
-      userBlog.videos = [];
+
+      userBlog.videos = videosToKeep;
     }
 
-    // Handle image updates if files are uploaded
     if (req.files && req.files.images) {
-      if (req.files.images.length > 10) {
+      const imageFiles = Array.isArray(req.files.images)
+        ? req.files.images
+        : [req.files.images];
+      if (imageFiles.length > 10 - (userBlog.images?.length || 0)) {
         return res
           .status(400)
-          .json({ message: "You can upload up to 10 images only" });
+          .json({ message: "You can upload up to 10 images in total" });
       }
 
-      // Delete old images from Cloudinary
-      for (const image of userBlog.images) {
-        if (image.publicId) {
-          try {
-            await cloudinary.uploader.destroy(image.publicId);
-          } catch (error) {
-            console.error(
-              `Error deleting image with publicId ${image.publicId}:`,
-              error
-            );
-          }
-        }
-      }
-
-      // Upload new images to Cloudinary
-      userBlog.images = await uploadFilesToCloudinary(
-        req.files.images,
+      const newImages = await uploadFilesToCloudinary(
+        imageFiles,
         "Blog/Images"
       );
+      userBlog.images = [...(userBlog.images || []), ...newImages];
     }
 
-    // Handle video updates if files are uploaded
     if (req.files && req.files.videos) {
-      if (req.files.videos.length > 1) {
+      const videoFiles = Array.isArray(req.files.videos)
+        ? req.files.videos
+        : [req.files.videos];
+      if (
+        videoFiles.length > 1 ||
+        userBlog.videos.length + videoFiles.length > 1
+      ) {
         return res.status(400).json({ message: "You can upload only 1 video" });
       }
 
-      // Delete old video from Cloudinary
-      for (const video of userBlog.videos) {
-        if (video.publicId) {
-          try {
-            await cloudinary.uploader.destroy(video.publicId, {
-              resource_type: "video",
-            });
-          } catch (error) {
-            console.error(
-              `Error deleting video with publicId ${video.publicId}:`,
-              error
-            );
-          }
-        }
-      }
-
-      // Upload new video to Cloudinary
-      userBlog.videos = await uploadFilesToCloudinary(
-        req.files.videos,
+      const newVideos = await uploadFilesToCloudinary(
+        videoFiles,
         "Blog/Videos",
         "video"
       );
+      userBlog.videos = [...(userBlog.videos || []), ...newVideos];
     }
 
-    // Save the updated blog
+    userBlog.updatedAt = new Date();
     await userBlog.save();
 
     res.status(200).json({
