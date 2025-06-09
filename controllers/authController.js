@@ -159,6 +159,7 @@ exports.login = async (req, res) => {
     res.status(200).json({
       accessToken, // Them de test
       message: 'Login successful',
+      refreshToken,
       account: {
         id: account._id,
         username: account.username,
@@ -217,7 +218,11 @@ exports.refreshToken = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    res.status(200).json({ message: 'Token refreshed successfully' });
+    res.status(200).json({ 
+      message: 'Token refreshed successfully',
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
   } catch (err) {
     console.error(err);
     res.status(403).json({ message: 'Invalid or expired refresh token' });
