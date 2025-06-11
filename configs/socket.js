@@ -8,7 +8,20 @@ function initSocket(io) {
     socket.on('joinRoom', (roomId) => {
       socket.join(roomId);
       console.log(`Socket ${socket.id} joined room: ${roomId}`);
-    });    // Handle sending messages - Note: This is now handled by the REST API endpoint
+    });
+
+    // Handle user joining their personal room for chat list updates
+    socket.on('joinPersonalRoom', (userId) => {
+      const personalRoom = `user_${userId}`;
+      socket.join(personalRoom);
+      console.log(`Socket ${socket.id} joined personal room: ${personalRoom}`);
+    });
+
+    socket.on('leaveRoom', (roomId) => {
+      socket.leave(roomId);
+      console.log(`Socket ${socket.id} left room: ${roomId}`);
+    });
+    
     // to avoid duplicate message creation. Keep this commented out.
     /*
     socket.on('sendMessage', async ({ chatRoomId, content, userId }) => {
