@@ -139,16 +139,27 @@ exports.sendMessage = async (req, res) => {
             sender,
             content,
             attachments
-        });
-
-        await message.save();
+        });        await message.save();
         // Populate the message with sender info before emitting
         const populatedMessage = await Message.findById(message._id).populate('sender', 'fullName email avatar');
 
         // Emit socket event to room for real-time update
         const io = req.app.get('io');
         if (io) {
+            // Emit to the specific chat room for real-time messaging
             io.to(id).emit('newMessage', populatedMessage);
+            
+            // Emit to all participants of this chat room to update their chat list
+            const chatRoom = await ChatRoom.findById(id).populate('participants');
+            if (chatRoom && chatRoom.participants) {
+                chatRoom.participants.forEach(participant => {
+                    // Emit to each participant's personal room to update chat list
+                    io.to(`user_${participant._id}`).emit('chatListUpdate', {
+                        chatRoomId: id,
+                        lastMessage: populatedMessage
+                    });
+                });
+            }
         }
 
         res.status(201).json({ message: 'Message sent successfully', data: populatedMessage });
