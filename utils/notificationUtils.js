@@ -1,6 +1,6 @@
 const Notification = require('../models/Notification');
 
-class NotificationService {
+class notificationUtils {
   /**
    * Create new notification
    * @param {Object} notificationData - Notification data
@@ -208,4 +208,4 @@ class NotificationService {
   }
 }
 
-module.exports = NotificationService;
+module.exports = notificationUtils;
