@@ -1,7 +1,7 @@
 const ChatRoom = require('../models/ChatRoom');
 const cloudinary = require('../configs/cloudinary');
 const Message = require('../models/Message');
-const NotificationService = require('../utils/notificationUtils');
+const notificationUtils = require('../utils/notificationUtils');
 
 exports.getAllChatRooms = async (req, res) => {
     try {
@@ -163,7 +163,7 @@ exports.sendMessage = async (req, res) => {
                     // Create notification for other participants (not the sender)
                     if (participant._id.toString() !== sender.toString()) {
                         try {
-                            await NotificationService.createChatNotification(
+                            await notificationUtils.createChatNotification(
                                 participant._id,
                                 sender,
                                 id,
