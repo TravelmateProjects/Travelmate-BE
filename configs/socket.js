@@ -10,11 +10,22 @@ function initSocket(io) {
       console.log(`Socket ${socket.id} joined room: ${roomId}`);
     });
 
-    // Handle user joining their personal room for chat list updates
+    // Handle user joining their personal room for chat list updates and notifications
     socket.on('joinPersonalRoom', (userId) => {
       const personalRoom = `user_${userId}`;
       socket.join(personalRoom);
       console.log(`Socket ${socket.id} joined personal room: ${personalRoom}`);
+    });
+
+    // Handle notification acknowledgment
+    socket.on('notificationReceived', (notificationId) => {
+      console.log(`Notification ${notificationId} received by client ${socket.id}`);
+    });
+
+    // Handle notification read status update
+    socket.on('markNotificationRead', (notificationId) => {
+      // Emit to other devices of the same user that notification was read
+      socket.broadcast.emit('notificationRead', notificationId);
     });
 
     socket.on('leaveRoom', (roomId) => {
