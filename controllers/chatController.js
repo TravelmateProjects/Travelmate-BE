@@ -1,6 +1,7 @@
 const ChatRoom = require('../models/ChatRoom');
 const cloudinary = require('../configs/cloudinary');
 const Message = require('../models/Message');
+const NotificationService = require('../utils/notificationUtils');
 
 exports.getAllChatRooms = async (req, res) => {
     try {
@@ -141,9 +142,7 @@ exports.sendMessage = async (req, res) => {
             attachments
         });        await message.save();
         // Populate the message with sender info before emitting
-        const populatedMessage = await Message.findById(message._id).populate('sender', 'fullName email avatar');
-
-        // Emit socket event to room for real-time update
+        const populatedMessage = await Message.findById(message._id).populate('sender', 'fullName email avatar');        // Emit socket event to room for real-time update
         const io = req.app.get('io');
         if (io) {
             // Emit to the specific chat room for real-time messaging
@@ -152,13 +151,27 @@ exports.sendMessage = async (req, res) => {
             // Emit to all participants of this chat room to update their chat list
             const chatRoom = await ChatRoom.findById(id).populate('participants');
             if (chatRoom && chatRoom.participants) {
-                chatRoom.participants.forEach(participant => {
+                chatRoom.participants.forEach(async (participant) => {
                     // Emit to each participant's personal room to update chat list
                     io.to(`user_${participant._id}`).emit('chatListUpdate', {
                         chatRoomId: id,
                         lastMessage: populatedMessage
                     });
-                });
+                    
+                    // Create notification for other participants (not the sender)
+                    if (participant._id.toString() !== sender.toString()) {
+                        try {
+                            await NotificationService.createChatNotification(
+                                participant._id,
+                                sender,
+                                id,
+                                content || 'Sent an attachment',
+                                io
+                            );
+                        } catch (error) {
+                            console.error('Error creating chat notification:', error);
+                        }
+                    }});
             }
         }
 
