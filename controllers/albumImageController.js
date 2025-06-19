@@ -7,21 +7,25 @@ exports.uploadMultipleImagesToAlbum = async (req, res) => {
     const { albumId } = req.params;
     const userId = req.account.userId;
 
+    // Kiểm tra album tồn tại
     const album = await UserAlbum.findById(albumId);
     if (!album) {
       return res.status(404).json({ message: "Album not found" });
     }
 
+    // Kiểm tra quyền sở hữu
     if (album.userId.toString() !== userId) {
       return res.status(403).json({
         message: "You are not authorized to upload images to this album",
       });
     }
 
+    // Kiểm tra có file được upload không
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No files uploaded" });
     }
 
+    // Kiểm tra giới hạn 20 ảnh
     const currentImageCount = await AlbumImage.countDocuments({ albumId });
     if (currentImageCount + req.files.length > 20) {
       return res
@@ -31,27 +35,21 @@ exports.uploadMultipleImagesToAlbum = async (req, res) => {
 
     const uploadedImages = [];
     try {
-      for (const file of req.files) {
-        const result = await new Promise((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            {
-              folder: "AlbumImages",
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-          uploadStream.end(file.buffer);
-        });
+      // Sử dụng uploadFilesToCloudinary để upload ảnh
+      const cloudinaryResults = await uploadFilesToCloudinary(
+        req.files,
+        "AlbumImages",
+        "image"
+      );
 
+      // Lưu thông tin ảnh vào database
+      for (const result of cloudinaryResults) {
         const newImage = new AlbumImage({
           albumId,
           userId,
-          url: result.secure_url,
-          publicId: result.public_id,
+          url: result.url,
+          publicId: result.publicId,
         });
-
         await newImage.save();
         uploadedImages.push(newImage);
       }
@@ -61,6 +59,7 @@ exports.uploadMultipleImagesToAlbum = async (req, res) => {
         images: uploadedImages,
       });
     } catch (error) {
+      // Rollback: Xóa ảnh đã upload trên Cloudinary nếu có lỗi
       for (const image of uploadedImages) {
         if (image.publicId) {
           try {
