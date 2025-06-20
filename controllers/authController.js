@@ -113,9 +113,8 @@ exports.register = async (req, res) => {
 // };
 
 exports.login = async (req, res) => {
-  const { username, password } = req.body;
-  // const userAgent = req.headers['user-agent'];
-
+  const { username, password, platform } = req.body; // Add platform to body
+  
   try {
     const account = await Account.findOne({ username }).populate('userId');
     if (!account || !account.accountStatus) return res.status(401).json({ message: 'Invalid login information or your account locked' });
@@ -135,39 +134,46 @@ exports.login = async (req, res) => {
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '3h' });
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+    
+    // Handle differently for web and app
+    if (platform === 'web') {
+      // For web: Set cookies and don't return tokens in response
+      res.cookie('accessToken', accessToken, { 
+        httpOnly: true, 
+        sameSite: 'strict',
+        maxAge: 3 * 60 * 60 * 1000 // 3 hours
+      });
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true, 
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
 
-    // Save the new refresh token to the database as part of the array with expiration date and user agent
-    // account.refreshTokens.push({ 
-    //   token: refreshToken, 
-    //   createdAt: new Date(), 
-    //   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    //   userAgent: userAgent
-    // });
-    // await account.save();
-
-    res.cookie('accessToken', accessToken, { 
-      httpOnly: true, 
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 minutes
-    });
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true, 
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-
-    res.status(200).json({
-      accessToken, // Them de test
-      message: 'Login successful',
-      refreshToken,
-      account: {
-        id: account._id,
-        username: account.username,
-        role: account.role,
-        userId: account.userId ? account.userId._id : undefined,
-      },
-      user: account.userId || undefined
-    });
+      res.status(200).json({
+        message: 'Login successful',
+        account: {
+          id: account._id,
+          username: account.username,
+          role: account.role,
+          userId: account.userId ? account.userId._id : undefined,
+        },
+        user: account.userId || undefined
+      });
+    } else {
+      // For app: Return tokens in response, don't set cookies
+      res.status(200).json({
+        message: 'Login successful',
+        accessToken,
+        refreshToken,
+        account: {
+          id: account._id,
+          username: account.username,
+          role: account.role,
+          userId: account.userId ? account.userId._id : undefined,
+        },
+        user: account.userId || undefined
+      });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -175,8 +181,15 @@ exports.login = async (req, res) => {
 };
 
 exports.refreshToken = async (req, res) => {
-  const { refreshToken } = req.cookies;
-  // console.log('Refresh token:', refreshToken);
+  const { platform } = req.body; // Add platform to body
+  let refreshToken;
+
+  // Get refreshToken from cookies or body depending on platform
+  if (platform === 'web') {
+    refreshToken = req.cookies?.refreshToken;
+  } else {
+    refreshToken = req.body.refreshToken;
+  }
 
   if (!refreshToken) {
     return res.status(401).json({ message: 'Refresh token not found' });
@@ -184,7 +197,6 @@ exports.refreshToken = async (req, res) => {
 
   try {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    // console.log('Decoded refresh token:', decoded);
 
     // Check if the refresh token is still valid in the database (if stored)
     const account = await Account.findById(decoded.accountId);
@@ -203,26 +215,32 @@ exports.refreshToken = async (req, res) => {
       process.env.JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
+    
+    // Handle differently for web and app
+    if (platform === 'web') {
+      // For web: Update cookies and don't return tokens in response
+      res.cookie('accessToken', newAccessToken, { 
+        httpOnly: true, 
+        sameSite: 'strict',
+        maxAge: 3 * 60 * 60 * 1000 // 3 hours
+      });
+      res.cookie('refreshToken', newRefreshToken, { 
+        httpOnly: true, 
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
 
-    // Optionally update the refresh token in the database
-    res.cookie('accessToken', newAccessToken, { 
-      httpOnly: true, 
-      // secure: true, 
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 minutes
-    });
-    res.cookie('refreshToken', newRefreshToken, { 
-      httpOnly: true, 
-      // secure: true, 
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-
-    res.status(200).json({ 
-      message: 'Token refreshed successfully',
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-    });
+      res.status(200).json({ 
+        message: 'Token refreshed successfully'
+      });
+    } else {
+      // For app: Return tokens in response
+      res.status(200).json({ 
+        message: 'Token refreshed successfully',
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      });
+    }
   } catch (err) {
     console.error(err);
     res.status(403).json({ message: 'Invalid or expired refresh token' });
@@ -293,9 +311,16 @@ exports.refreshToken = async (req, res) => {
 // };
 
 exports.logout = (req, res) => {
+  const { platform } = req.body; // Add platform to body
+  
   try {
-    res.clearCookie('accessToken', { httpOnly: true, sameSite: 'strict' });
-    res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict' });
+    // Only clear cookies for web platform
+    if (platform === 'web') {
+      res.clearCookie('accessToken', { httpOnly: true, sameSite: 'strict' });
+      res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict' });
+    }
+    // For app, client handles token removal from local storage or secure storage
+    
     res.status(200).json({ message: 'Logout successful' });
   } catch (err) {
     console.error(err);
