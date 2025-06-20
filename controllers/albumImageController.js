@@ -1,6 +1,7 @@
 const cloudinary = require("../configs/cloudinary");
 const AlbumImage = require("../models/AlbumImage");
 const UserAlbum = require("../models/UserAlbum");
+const { uploadFilesToCloudinary } = require("../utils/cloudinaryUtils");
 
 exports.uploadMultipleImagesToAlbum = async (req, res) => {
   try {
