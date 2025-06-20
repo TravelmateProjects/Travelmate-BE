@@ -145,16 +145,17 @@ exports.login = async (req, res) => {
     // });
     // await account.save();
 
-    res.cookie('accessToken', accessToken, { 
-      httpOnly: true, 
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 minutes
-    });
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true, 
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    // // Set cookies for access and refresh tokens for web
+    // res.cookie('accessToken', accessToken, { 
+    //   httpOnly: true, 
+    //   sameSite: 'strict',
+    //   maxAge: 15 * 60 * 1000 // 15 minutes
+    // });
+    // res.cookie('refreshToken', refreshToken, {
+    //   httpOnly: true, 
+    //   sameSite: 'strict',
+    //   maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    // });
 
     res.status(200).json({
       accessToken, // Them de test
@@ -175,8 +176,8 @@ exports.login = async (req, res) => {
 };
 
 exports.refreshToken = async (req, res) => {
-  const { refreshToken } = req.cookies;
-  // console.log('Refresh token:', refreshToken);
+  const { refreshToken } = req.cookies &&  req.body; // cho car web vaf app
+  console.log('Refresh token:', refreshToken);
 
   if (!refreshToken) {
     return res.status(401).json({ message: 'Refresh token not found' });
