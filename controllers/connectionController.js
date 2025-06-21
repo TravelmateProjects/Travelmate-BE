@@ -24,7 +24,7 @@ exports.sendFriendRequest = async (req, res) => {
     await toUser.save();
     // Gửi notification qua socket
     const io = req.app.get('io');
-    await notificationUtils.createConnectionNotification(toUserId, fromUserId, 'request', io);
+    await notificationUtils.createConnectionNotification(toUserId, fromUserId, 'request', 'pending', io);
     res.json({ message: 'Friend request sent.' });
   } catch (err) {
     console.error('Send friend request error:', err, { fromUserId, toUserId, account: req.account });
@@ -53,9 +53,9 @@ exports.acceptFriendRequest = async (req, res) => {
       fromUser.connections.push({ userId, status: 'accepted' });
     }
     await fromUser.save();
-    // Gửi notification qua socket cho user gửi request
+    await notificationUtils.updateConnectionNotificationStatus(userId, fromUserId, 'accepted');
     const io = req.app.get('io');
-    await notificationUtils.createConnectionNotification(fromUserId, userId, 'accepted', io);
+    await notificationUtils.createConnectionNotification(fromUserId, userId, 'accepted', 'accepted', io);
     res.json({ message: 'Friend request accepted.' });
   } catch (err) {
     res.status(500).json({ message: 'Server error.' });
@@ -83,6 +83,10 @@ exports.rejectFriendRequest = async (req, res) => {
       fromUser.connections.push({ userId, status: 'rejected' });
     }
     await fromUser.save();
+    // Gọi update notification status
+    await notificationUtils.updateConnectionNotificationStatus(userId, fromUserId, 'rejected');
+    const io = req.app.get('io');
+    await notificationUtils.createConnectionNotification(fromUserId, userId, 'rejected', 'rejected', io);
     res.json({ message: 'Friend request rejected.' });
   } catch (err) {
     res.status(500).json({ message: 'Server error.' });

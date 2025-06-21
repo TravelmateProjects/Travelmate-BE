@@ -94,7 +94,7 @@ class notificationUtils {
    * @param {string} action - 'request' | 'accepted' | 'rejected'
    * @param {Object} io - Socket.io instance
    */
-  static async createConnectionNotification(userId, fromUserId, action, io) {
+  static async createConnectionNotification(userId, fromUserId, action, status, io) {
     const contentMap = {
       request: 'sent you a friend request',
       accepted: 'accepted your friend request',
@@ -109,7 +109,7 @@ class notificationUtils {
       relatedModel: 'User',
       fromUser: fromUserId,
       priority: 'medium',
-      data: { action }
+      data: { action, status }
     }, io);
   }
 
@@ -203,6 +203,31 @@ class notificationUtils {
       );
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update status of connection request notification
+   * @param {ObjectId} userId - Recipient ID (người nhận lời mời)
+   * @param {ObjectId} fromUserId - Sender ID (người gửi lời mời)
+   * @param {string} newStatus - 'accepted' | 'rejected'
+   * @returns {Promise<number>} Number of notifications updated
+   */
+  static async updateConnectionNotificationStatus(userId, fromUserId, newStatus) {
+    try {
+      const result = await Notification.updateMany(
+        {
+          userId,
+          fromUser: fromUserId,
+          type: 'connection_request',
+          'data.status': 'pending'
+        },
+        { $set: { 'data.status': newStatus } }
+      );
+      return result.modifiedCount || 0;
+    } catch (error) {
+      console.error('Error updating connection notification status:', error);
       throw error;
     }
   }
