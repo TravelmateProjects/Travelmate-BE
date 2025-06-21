@@ -11,7 +11,7 @@ const bcrypt = require('bcryptjs');
 const accountSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  role: { type: String, enum: ['user', 'admin', 'partner' ], default: 'user' },
   accountStatus: { type: Boolean, default: false },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // sẽ ra sao nếu là tài khoản admin?
   // userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: function() {
