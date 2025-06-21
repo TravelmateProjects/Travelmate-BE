@@ -20,6 +20,12 @@ exports.findMatchingUsers = async (req, res) => {
     startDate.setDate(startDate.getDate() - 2);
     endDate.setDate(endDate.getDate() + 2);
 
+    const currentDate = new Date();
+
+    if (new Date(userTravelInfo.arrivalDate) < currentDate || new Date(userTravelInfo.departureDate) < currentDate) {
+      return res.status(400).json({ message: 'Your travel dates are in the past. Please update your travel information.' });
+    }
+
     const matchedTravelInfos = await TravelInfo.find({
       destination,
       arrivalDate: { $gte: startDate, $lte: endDate },
