@@ -22,6 +22,7 @@ const matchUserRouters = require('./routes/matchUserRouters');
 const chatRouters = require('./routes/chatRouters');
 const travelPlanRouters = require('./routes/travelPlanRouters');
 const notificationRouters = require('./routes/notificationRouters');
+const connectionRouters = require('./routes/connectionRouters');
 
 var app = express();
 
@@ -59,5 +60,6 @@ app.use('/matchUser', matchUserRouters);
 app.use('/chat', chatRouters);
 app.use('/travelPlan', travelPlanRouters);
 app.use('/notifications', notificationRouters);
+app.use('/connections', connectionRouters);
 
 module.exports = app;
