@@ -465,3 +465,43 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+// Đổi mật khẩu khi đã đăng nhập
+exports.changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+    // Lấy accountId từ token (giả sử đã có middleware xác thực và gán req.accountId)
+    const accountId = req.accountId || (req.user && req.user.accountId);
+    if (!accountId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin.' });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: 'Mật khẩu mới và xác nhận không khớp.' });
+    }
+    const account = await Account.findById(accountId);
+    if (!account) {
+      return res.status(404).json({ message: 'Tài khoản không tồn tại.' });
+    }
+    const isMatch = await account.comparePassword(oldPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Mật khẩu cũ không đúng.' });
+    }
+    if (oldPassword === newPassword) {
+      return res.status(400).json({ message: 'Mật khẩu mới không được trùng mật khẩu cũ.' });
+    }
+    // Validate độ mạnh mật khẩu mới: ít nhất 8 ký tự, có chữ, số và ký tự đặc biệt
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 8 ký tự, bao gồm chữ, số và ký tự đặc biệt.' });
+    }
+    account.password = newPassword;
+    await account.save();
+    res.status(200).json({ message: 'Đổi mật khẩu thành công!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server khi đổi mật khẩu.' });
+  }
+};
+

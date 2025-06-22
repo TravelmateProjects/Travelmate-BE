@@ -70,7 +70,7 @@ class notificationUtils {
    * @param {string} messageContent - Message content
    * @param {Object} io - Socket.io instance
    */
-  static async createChatNotification(userId, fromUserId, chatRoomId, messageContent, io) {
+  static async createChatNotification(userId, fromUserId, chatRoomId, chatRoomName = null, messageContent, io) {
     const content = messageContent.length > 50 
       ? `${messageContent.substring(0, 50)}...` 
       : messageContent;
@@ -83,7 +83,7 @@ class notificationUtils {
       relatedModel: 'ChatRoom',
       fromUser: fromUserId,
       priority: 'medium',
-      data: { chatRoomId, originalMessage: messageContent }
+      data: { chatRoomId, chatRoomName, originalMessage: messageContent }
     }, io);
   }
 
