@@ -167,6 +167,7 @@ exports.sendMessage = async (req, res) => {
                                 participant._id,
                                 sender,
                                 id,
+                                chatRoom.name,
                                 content || 'Sent an attachment',
                                 io
                             );
