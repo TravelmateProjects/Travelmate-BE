@@ -7,7 +7,7 @@
 var app = require('../app');
 var debug = require('debug')('travelmate-be:server');
 var http = require('http');
-var https = require('https');
+// var https = require('https');
 var fs = require('fs');
 const initSocket = require('../configs/socket');
 
@@ -22,12 +22,12 @@ app.set('port', port);
  * Create HTTPS server.
  */
 
-// var server = http.createServer(app);
-const httpsOptions = {
-    key: fs.readFileSync(__dirname + '/key.pem'),
-    cert: fs.readFileSync(__dirname + '/cert.pem')
-};
-var server = https.createServer(httpsOptions, app);
+var server = http.createServer(app);
+// const httpsOptions = {
+//     key: fs.readFileSync(__dirname + '/key.pem'),
+//     cert: fs.readFileSync(__dirname + '/cert.pem')
+// };
+// var server = https.createServer(httpsOptions, app);
 
 const socketIo = require('socket.io');
 const io = socketIo(server, { cors: { origin: '*' } });
