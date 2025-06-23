@@ -190,12 +190,12 @@ exports.refreshToken = async (req, res) => {
   const { platform } = req.body; // Add platform to body
   let refreshToken;
 
-  console.log('[AuthController] Refresh token request:', {
-    platform,
-    cookies: req.cookies,
-    headers: req.headers,
-    origin: req.get('origin')
-  });
+  // console.log('[AuthController] Refresh token request:', {
+  //   platform,
+  //   cookies: req.cookies,
+  //   headers: req.headers,
+  //   origin: req.get('origin')
+  // });
   // Get refreshToken from cookies or body depending on platform
   if (platform === 'web') {
     // Try cookies first, then fallback to body (for cross-origin issues)
