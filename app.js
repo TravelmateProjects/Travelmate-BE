@@ -8,6 +8,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./tests/swaggerOptions');
 const connectDB = require('./configs/dbConfig');
 const cors = require('cors');
+const debugMiddleware = require('./middlewares/debugMiddleware');
 
 var indexRouter = require('./routes/index');
 const authRoutes = require('./routes/authRoutes');
@@ -28,9 +29,17 @@ var app = express();
 
 // CORS - cho phép frontend truy cập
 app.use(cors({
-    origin: ['http://localhost:3000', '*'],
-    // origin: "*",
-    credentials: true
+    origin: [
+        'http://localhost:3000', 
+        'http://localhost:3001',
+        'http://3.93.248.130:3000',
+        'http://3.93.248.130:3001',
+        // Thêm domain frontend của bạn ở đây
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    exposedHeaders: ['Set-Cookie']
 }));
 
 app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
@@ -44,6 +53,11 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' })); // Set limit for
 
 // Connect to MongoDB
 connectDB();
+
+// Debug middleware (only in development)
+// if (process.env.NODE_ENV === 'development') {
+//     app.use('/auth', debugMiddleware);
+// }
 
 // Routes
 app.use('/', indexRouter);

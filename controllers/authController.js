@@ -134,18 +134,22 @@ exports.login = async (req, res) => {
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '3h' });
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
-    
-    // Handle differently for web and app
+      // Handle differently for web and app
     if (platform === 'web') {
       // For web: Set cookies and don't return tokens in response
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+        domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Let browser set domain automatically
+      };
+
       res.cookie('accessToken', accessToken, { 
-        httpOnly: true, 
-        sameSite: 'strict',
+        ...cookieOptions,
         maxAge: 3 * 60 * 60 * 1000 // 3 hours
       });
       res.cookie('refreshToken', refreshToken, {
-        httpOnly: true, 
-        sameSite: 'strict',
+        ...cookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
@@ -159,7 +163,7 @@ exports.login = async (req, res) => {
         },
         user: account.userId || undefined
       });
-    } else {
+    }else {
       // For app: Return tokens in response, don't set cookies
       res.status(200).json({
         message: 'Login successful',
@@ -184,6 +188,13 @@ exports.refreshToken = async (req, res) => {
   const { platform } = req.body; // Add platform to body
   let refreshToken;
 
+  console.log('[AuthController] Refresh token request:', {
+    platform,
+    cookies: req.cookies,
+    headers: req.headers,
+    origin: req.get('origin')
+  });
+
   // Get refreshToken from cookies or body depending on platform
   if (platform === 'web') {
     refreshToken = req.cookies?.refreshToken;
@@ -191,7 +202,10 @@ exports.refreshToken = async (req, res) => {
     refreshToken = req.body.refreshToken;
   }
 
+  console.log('[AuthController] Refresh token found:', !!refreshToken);
+
   if (!refreshToken) {
+    console.log('[AuthController] No refresh token provided');
     return res.status(401).json({ message: 'Refresh token not found' });
   }
 
@@ -215,18 +229,22 @@ exports.refreshToken = async (req, res) => {
       process.env.JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
-    
     // Handle differently for web and app
     if (platform === 'web') {
       // For web: Update cookies and don't return tokens in response
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+        domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Let browser set domain automatically
+      };
+
       res.cookie('accessToken', newAccessToken, { 
-        httpOnly: true, 
-        sameSite: 'strict',
+        ...cookieOptions,
         maxAge: 3 * 60 * 60 * 1000 // 3 hours
       });
       res.cookie('refreshToken', newRefreshToken, { 
-        httpOnly: true, 
-        sameSite: 'strict',
+        ...cookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
@@ -316,8 +334,15 @@ exports.logout = (req, res) => {
   try {
     // Only clear cookies for web platform
     if (platform === 'web') {
-      res.clearCookie('accessToken', { httpOnly: true, sameSite: 'strict' });
-      res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'strict' });
+      const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        domain: process.env.NODE_ENV === 'production' ? undefined : undefined,
+      };
+
+      res.clearCookie('accessToken', cookieOptions);
+      res.clearCookie('refreshToken', cookieOptions);
     }
     // For app, client handles token removal from local storage or secure storage
     
