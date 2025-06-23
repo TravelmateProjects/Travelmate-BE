@@ -133,15 +133,14 @@ exports.login = async (req, res) => {
     }
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '3h' });
-    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
-    // Handle differently for web and app
+    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });    // Handle differently for web and app
     if (platform === 'web') {
       // For web: Set cookies AND return tokens (for development debugging)
       const cookieOptions = {
         httpOnly: true,
-        secure: false, // false for HTTP development
-        sameSite: 'lax', // 'lax' works better for HTTP cross-origin in development
-        domain: undefined,
+        secure: process.env.NODE_ENV === 'production', // HTTPS in production
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // strict for same-origin in production
+        domain: undefined, // Auto-detect domain
       };
 
       res.cookie('accessToken', accessToken, { 
@@ -197,15 +196,16 @@ exports.refreshToken = async (req, res) => {
     headers: req.headers,
     origin: req.get('origin')
   });
-
   // Get refreshToken from cookies or body depending on platform
   if (platform === 'web') {
-    refreshToken = req.cookies?.refreshToken;
+    // Try cookies first, then fallback to body (for cross-origin issues)
+    refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
   } else {
     refreshToken = req.body.refreshToken;
   }
 
   console.log('[AuthController] Refresh token found:', !!refreshToken);
+  console.log('[AuthController] Token source:', req.cookies?.refreshToken ? 'cookies' : 'body');
 
   if (!refreshToken) {
     console.log('[AuthController] No refresh token provided');
@@ -231,15 +231,14 @@ exports.refreshToken = async (req, res) => {
       { accountId: decoded.accountId, userId: decoded.userId, role: decoded.role },
       process.env.JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
-    );
-    // Handle differently for web and app
+    );    // Handle differently for web and app
     if (platform === 'web') {
-      // For web: Update cookies and don't return tokens in response
+      // For web: Update cookies and return tokens in development
       const cookieOptions = {
         httpOnly: true,
-        secure: false, // false for HTTP (localhost to EC2)
-        sameSite: 'none', // 'none' for cross-origin (localhost to EC2)
-        domain: undefined, // Let browser set domain automatically
+        secure: process.env.NODE_ENV === 'production', // HTTPS in production
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // strict for same-origin in production
+        domain: undefined, // Auto-detect domain
       };
 
       res.cookie('accessToken', newAccessToken, { 
@@ -252,7 +251,10 @@ exports.refreshToken = async (req, res) => {
       });
 
       res.status(200).json({ 
-        message: 'Token refreshed successfully'
+        message: 'Token refreshed successfully',
+        // Include tokens for debugging/fallback (when cookies don't work)
+        accessToken: process.env.NODE_ENV === 'development' ? newAccessToken : undefined,
+        refreshToken: process.env.NODE_ENV === 'development' ? newRefreshToken : undefined,
       });
     } else {
       // For app: Return tokens in response
@@ -338,8 +340,8 @@ exports.logout = (req, res) => {
     if (platform === 'web') {
       const cookieOptions = {
         httpOnly: true,
-        secure: false, // false for HTTP (localhost to EC2)
-        sameSite: 'none', // 'none' for cross-origin (localhost to EC2)
+        secure: process.env.NODE_ENV === 'production', // HTTPS in production
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // strict for same-origin in production
         domain: undefined,
       };
 

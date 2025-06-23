@@ -29,17 +29,27 @@ const testRoutes = require('./routes/testRoutes');
 var app = express();
 
 // CORS - cho phép frontend truy cập
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [
+      // Production origins - THAY ĐỔI KHI DEPLOY
+      'https://your-frontend-domain.com',
+      'https://www.your-frontend-domain.com',
+      'https://your-app.vercel.app',
+      'https://your-app.netlify.app'
+    ]
+  : [
+      // Development origins
+      'http://localhost:3000', 
+      'http://localhost:3001',
+      'http://localhost:5173', // Vite dev server
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+      'http://3.93.248.130:3000',
+      'http://3.93.248.130:3001'
+    ];
+
 app.use(cors({
-    origin: [
-        'http://localhost:3000', 
-        'http://localhost:3001',
-        'http://localhost:5173', // Vite dev server
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:5173',
-        // Thêm domain frontend của bạn ở đây nếu deploy lên server
-        'http://3.93.248.130:3000',
-        'http://3.93.248.130:3001'
-    ],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
@@ -48,15 +58,7 @@ app.use(cors({
 
 // Handle preflight requests explicitly
 app.options('*', cors({
-    origin: [
-        'http://localhost:3000', 
-        'http://localhost:3001',
-        'http://localhost:5173',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:5173',
-        'http://3.93.248.130:3000',
-        'http://3.93.248.130:3001'
-    ],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
