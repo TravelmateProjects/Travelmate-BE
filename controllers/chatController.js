@@ -234,12 +234,21 @@ exports.deleteChatRoom = async (req, res) => {
 exports.deleteMessage = async (req, res) => {
     try {
         const { id, messageId } = req.params; // Chat room ID and message ID
+        const userId = req.account.userId; // Get the user who is deleting the message
 
-        // Find the message
-        const message = await Message.findOneAndDelete({ _id: messageId, chatRoomId: id });
+        // Find the message first to check ownership
+        const message = await Message.findOne({ _id: messageId, chatRoomId: id });
         if (!message) {
             return res.status(404).json({ message: 'Message not found' });
         }
+
+        // Check if the user is the sender of the message
+        if (message.sender.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'You can only delete your own messages' });
+        }
+
+        // Delete the message
+        await Message.findByIdAndDelete(messageId);
 
         // Delete attachments from Cloudinary if they exist
         if (message.attachments && message.attachments.length > 0) {
@@ -252,6 +261,12 @@ exports.deleteMessage = async (req, res) => {
                     console.error(`Failed to delete attachment with publicId ${attachment.publicId}:`, error);
                 }
             }
+        }
+
+        // Emit socket event to room for real-time update
+        const io = req.app.get('io');
+        if (io) {
+            io.to(id).emit('messageDeleted', { messageId, chatRoomId: id });
         }
 
         res.status(200).json({ message: 'Message and its attachments deleted successfully' });
