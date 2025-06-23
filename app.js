@@ -35,6 +35,7 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
       'https://your-frontend-domain.com',
       'https://www.your-frontend-domain.com',
       'https://travelmate-fe-web.vercel.app',
+      'http://3.93.248.130/'
     ]
   : [
       // Development origins
@@ -46,6 +47,7 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
       'http://3.93.248.130:3000',
       'http://3.93.248.130:3001',
       'https://travelmate-fe-web.vercel.app',
+      'http://3.93.248.130/'
     ];
 
 app.use(cors({
