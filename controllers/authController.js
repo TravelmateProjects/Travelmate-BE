@@ -140,7 +140,7 @@ exports.login = async (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
-        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined, // Set domain for production
+        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : [ 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'https://travelmate-fe-web.vercel.app', ],
       };
 
       res.cookie('accessToken', accessToken, { 
@@ -154,9 +154,6 @@ exports.login = async (req, res) => {
 
       res.status(200).json({
         message: 'Login successful',
-        // Include tokens for debugging (remove in production)
-        accessToken: process.env.NODE_ENV === 'development' ? accessToken : undefined,
-        refreshToken: process.env.NODE_ENV === 'development' ? refreshToken : undefined,
         account: {
           id: account._id,
           username: account.username,
@@ -238,7 +235,7 @@ exports.refreshToken = async (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
-        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined, // Set domain for production
+        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : [ 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'https://travelmate-fe-web.vercel.app', ],
       };
 
       res.cookie('accessToken', newAccessToken, { 
@@ -252,9 +249,6 @@ exports.refreshToken = async (req, res) => {
 
       res.status(200).json({ 
         message: 'Token refreshed successfully',
-        // Include tokens for debugging/fallback (when cookies don't work)
-        accessToken: process.env.NODE_ENV === 'development' ? newAccessToken : undefined,
-        refreshToken: process.env.NODE_ENV === 'development' ? newRefreshToken : undefined,
       });
     } else {
       // For app: Return tokens in response
@@ -342,7 +336,7 @@ exports.logout = (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
-        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined,
+        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : [ 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'https://travelmate-fe-web.vercel.app', ],
       };
 
       res.clearCookie('accessToken', cookieOptions);
