@@ -134,14 +134,14 @@ exports.login = async (req, res) => {
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '3h' });
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
-      // Handle differently for web and app
+    // Handle differently for web and app
     if (platform === 'web') {
-      // For web: Set cookies and don't return tokens in response
+      // For web: Set cookies AND return tokens (for development debugging)
       const cookieOptions = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
-        domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Let browser set domain automatically
+        secure: false, // false for HTTP development
+        sameSite: 'lax', // 'lax' works better for HTTP cross-origin in development
+        domain: undefined,
       };
 
       res.cookie('accessToken', accessToken, { 
@@ -155,6 +155,9 @@ exports.login = async (req, res) => {
 
       res.status(200).json({
         message: 'Login successful',
+        // Include tokens for debugging (remove in production)
+        accessToken: process.env.NODE_ENV === 'development' ? accessToken : undefined,
+        refreshToken: process.env.NODE_ENV === 'development' ? refreshToken : undefined,
         account: {
           id: account._id,
           username: account.username,
@@ -163,7 +166,7 @@ exports.login = async (req, res) => {
         },
         user: account.userId || undefined
       });
-    }else {
+    } else {
       // For app: Return tokens in response, don't set cookies
       res.status(200).json({
         message: 'Login successful',
@@ -234,9 +237,9 @@ exports.refreshToken = async (req, res) => {
       // For web: Update cookies and don't return tokens in response
       const cookieOptions = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
-        domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Let browser set domain automatically
+        secure: false, // false for HTTP (localhost to EC2)
+        sameSite: 'none', // 'none' for cross-origin (localhost to EC2)
+        domain: undefined, // Let browser set domain automatically
       };
 
       res.cookie('accessToken', newAccessToken, { 
@@ -330,15 +333,14 @@ exports.refreshToken = async (req, res) => {
 
 exports.logout = (req, res) => {
   const { platform } = req.body; // Add platform to body
-  
   try {
     // Only clear cookies for web platform
     if (platform === 'web') {
       const cookieOptions = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        domain: process.env.NODE_ENV === 'production' ? undefined : undefined,
+        secure: false, // false for HTTP (localhost to EC2)
+        sameSite: 'none', // 'none' for cross-origin (localhost to EC2)
+        domain: undefined,
       };
 
       res.clearCookie('accessToken', cookieOptions);

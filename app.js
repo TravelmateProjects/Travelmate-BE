@@ -24,6 +24,7 @@ const chatRouters = require('./routes/chatRouters');
 const travelPlanRouters = require('./routes/travelPlanRouters');
 const notificationRouters = require('./routes/notificationRouters');
 const connectionRouters = require('./routes/connectionRouters');
+const testRoutes = require('./routes/testRoutes');
 
 var app = express();
 
@@ -32,12 +33,33 @@ app.use(cors({
     origin: [
         'http://localhost:3000', 
         'http://localhost:3001',
-        '*'
-        // Thêm domain frontend của bạn ở đây
+        'http://localhost:5173', // Vite dev server
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173',
+        // Thêm domain frontend của bạn ở đây nếu deploy lên server
+        'http://3.93.248.130:3000',
+        'http://3.93.248.130:3001'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie']
+}));
+
+// Handle preflight requests explicitly
+app.options('*', cors({
+    origin: [
+        'http://localhost:3000', 
+        'http://localhost:3001',
+        'http://localhost:5173',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173',
+        'http://3.93.248.130:3000',
+        'http://3.93.248.130:3001'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
     exposedHeaders: ['Set-Cookie']
 }));
 
@@ -61,6 +83,7 @@ if (process.env.NODE_ENV === 'production') {
 // Routes
 app.use('/', indexRouter);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use('/test', testRoutes); // Add test routes for debugging
 app.use('/auth', authRoutes);
 app.use('/users', userRouters);
 app.use('/blog', blogRoutes);
