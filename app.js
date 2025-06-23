@@ -78,7 +78,7 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' })); // Set limit for
 connectDB();
 
 // Debug middleware (only in development)
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'development') {
     app.use('/auth', debugMiddleware);
 }
 
