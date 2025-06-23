@@ -32,8 +32,7 @@ app.use(cors({
     origin: [
         'http://localhost:3000', 
         'http://localhost:3001',
-        'http://3.93.248.130:3000',
-        'http://3.93.248.130:3001',
+        '*'
         // Thêm domain frontend của bạn ở đây
     ],
     credentials: true,
