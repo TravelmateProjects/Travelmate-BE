@@ -28,14 +28,13 @@ const testRoutes = require('./routes/testRoutes');
 
 var app = express();
 
-// CORS - cho phép frontend truy cập
+// CORS - allow frontend access
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? [
-      // Production origins - THAY ĐỔI KHI DEPLOY
+      // Production origins
       'https://your-frontend-domain.com',
       'https://www.your-frontend-domain.com',
-      'https://your-app.vercel.app',
-      'https://your-app.netlify.app'
+      'https://travelmate-fe-web.vercel.app',
     ]
   : [
       // Development origins
@@ -45,7 +44,8 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
       'http://3.93.248.130:3000',
-      'http://3.93.248.130:3001'
+      'http://3.93.248.130:3001',
+      'https://travelmate-fe-web.vercel.app',
     ];
 
 app.use(cors({
