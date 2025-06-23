@@ -139,8 +139,8 @@ exports.login = async (req, res) => {
       const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // strict for same-origin in production
-        domain: undefined, // Auto-detect domain
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined, // Set domain for production
       };
 
       res.cookie('accessToken', accessToken, { 
@@ -237,8 +237,8 @@ exports.refreshToken = async (req, res) => {
       const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // strict for same-origin in production
-        domain: undefined, // Auto-detect domain
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined, // Set domain for production
       };
 
       res.cookie('accessToken', newAccessToken, { 
@@ -341,8 +341,8 @@ exports.logout = (req, res) => {
       const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // strict for same-origin in production
-        domain: undefined,
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined,
       };
 
       res.clearCookie('accessToken', cookieOptions);
