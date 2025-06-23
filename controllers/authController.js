@@ -445,7 +445,7 @@ exports.changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword, confirmPassword } = req.body;
     // Lấy accountId từ token (giả sử đã có middleware xác thực và gán req.accountId)
-    const accountId = req.accountId || (req.user && req.user.accountId);
+    const accountId = req.account.accountId 
     if (!accountId) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
