@@ -12,7 +12,8 @@ router.get('/:id', verifyToken, authorizeRole('user'), chatController.getChatRoo
 router.post('/', verifyToken, authorizeRole('user'), chatController.createChatRoom); // Tạo phòng chat mới
 router.post('/:id/message', verifyToken, authorizeRole('user'), upload.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 2 }, { name: 'files', maxCount: 2 } ]), chatController.sendMessage); // Gửi tin nhắn trong phòng chat (image/video/file là tùy chọn)
 router.get('/:id/messages', verifyToken, authorizeRole('user'), chatController.getMessages); // Lấy danh sách tin nhắn trong phòng chat
-router.delete('/:id', verifyToken, authorizeRole('user'), chatController.deleteChatRoom); // Xóa phòng chat theo ID
+router.post('/:id/leave', verifyToken, authorizeRole('user'), chatController.leaveChatRoom); // Rời khỏi phòng chat
+router.delete('/:id', verifyToken, authorizeRole('user'), chatController.deleteChatRoom); // Xóa phòng chat theo ID (chỉ chủ phòng)
 router.delete('/:id/message/:messageId', verifyToken, authorizeRole('user'), chatController.deleteMessage); // Xóa tin nhắn theo ID
 
 module.exports = router;
