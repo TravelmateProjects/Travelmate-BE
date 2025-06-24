@@ -2,6 +2,7 @@ const ChatRoom = require('../models/ChatRoom');
 const cloudinary = require('../configs/cloudinary');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const notificationUtils = require('../utils/notificationUtils');
 
 exports.getAllChatRooms = async (req, res) => {
@@ -243,12 +244,20 @@ exports.deleteChatRoom = async (req, res) => {
                 }
             }
         }
-
         // Delete all messages in the chat room
-        await Message.deleteMany({ chatRoomId: id });        // Delete the chat room
+        await Message.deleteMany({ chatRoomId: id });
+
+        // Delete all notifications related to this chat room
+        await Notification.deleteMany({ 
+            relatedId: id, 
+            relatedModel: 'ChatRoom' 
+        });
+        // console.log(`Deleted all notifications for chatRoom: ${id}`);
+
+        // Delete the chat room
         await ChatRoom.findByIdAndDelete(id);
         
-        // Emit socket event to all participants that the chat room was deleted
+      // Emit socket event to all participants that the chat room was deleted
         const io = req.app.get('io');
         if (io) {
             // Notify all participants that the chat room was deleted
