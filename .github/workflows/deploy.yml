@@ -21,7 +21,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ~/Travelmate/Travelmate-BE
+            cd /mnt/data/Travelmate/Travelmate-BE
 
             # Pull latest code
             git pull origin master
