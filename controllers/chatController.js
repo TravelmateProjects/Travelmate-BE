@@ -187,7 +187,14 @@ exports.sendMessage = async (req, res) => {
 exports.getMessages = async (req, res) => {
     try {
         const { id } = req.params; // Chat room ID
-        const messages = await Message.find({ chatRoomId: id }).populate('sender', 'fullName email avatar').sort({ createdAt: -1 });
+        const messages = await Message.find({ chatRoomId: id })
+            .populate({
+                path: 'sender',
+                select: 'fullName email avatar',
+                // Don't fail if sender is null (for system messages)
+                options: { strictPopulate: false }
+            })
+            .sort({ createdAt: -1 });
         res.status(200).json({ message: 'Messages retrieved successfully', data: messages });
     } catch (error) {
         res.status(500).json({ message: 'Error retrieving messages', error: error.message });
@@ -321,29 +328,52 @@ exports.leaveChatRoom = async (req, res) => {
         if (chatRoom.createdBy.toString() === userId.toString()) {
             return res.status(400).json({ message: 'Chat room creator cannot leave. You must delete the chat room or transfer ownership first.' });
         }
+        
+        // Get user info before removing from participants
+        const User = require('../models/User');
+        const leavingUser = await User.findById(userId).select('fullName');
+        
         // Remove the user from participants
         chatRoom.participants = chatRoom.participants.filter(participantId => participantId.toString() !== userId.toString());
         
         // Save the updated chat room
         await chatRoom.save();
 
+        // Create a system message about the user leaving
+        const Message = require('../models/Message');
+        const systemMessage = new Message({
+            content: `${leavingUser.fullName} has left this chatroom`,
+            sender: null, // null indicates system message
+            chatRoomId: id,
+            messageType: 'system',
+            createdAt: new Date()
+        });
+        await systemMessage.save();
+
         // Emit socket event to notify remaining participants
         const io = req.app.get('io');
         if (io) {
-            // Notify remaining participants that someone left
+            // Notify remaining participants that someone left and send the system message
             chatRoom.participants.forEach((participantId) => {
                 io.to(`user_${participantId}`).emit('participantLeft', { 
                     chatRoomId: id, 
                     userId: userId,
                     remainingParticipants: chatRoom.participants.length 
                 });
+            });            // Send system message to all remaining participants in the chat room
+            io.to(id).emit('newMessage', {
+                _id: systemMessage._id,
+                content: systemMessage.content,
+                sender: null,
+                chatRoomId: id,
+                messageType: 'system',
+                createdAt: systemMessage.createdAt,
+                attachments: []
             });
 
             // Notify the user who left to update their chat list
             io.to(`user_${userId}`).emit('chatRoomLeft', { chatRoomId: id });
-        }
-
-        res.status(200).json({ message: 'Left chat room successfully' });
+        }        res.status(200).json({ message: 'Left chat room successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error leaving chat room', error: error.message });
     }
