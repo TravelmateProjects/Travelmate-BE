@@ -1,6 +1,7 @@
 const ChatRoom = require('../models/ChatRoom');
 const cloudinary = require('../configs/cloudinary');
 const Message = require('../models/Message');
+const User = require('../models/User');
 const notificationUtils = require('../utils/notificationUtils');
 
 exports.getAllChatRooms = async (req, res) => {
@@ -25,8 +26,7 @@ exports.getChatRooms = async (req, res) => {
                     .populate('sender', 'fullName email avatar')
                     .sort({ createdAt: -1 }) // Sort to get the most recent message
                     .lean(); // optimize performance by using lean()
-                
-                return {
+                  return {
                     ...chatRoom.toObject(),
                     lastMessage: lastMessage ? {
                         _id: lastMessage._id,
@@ -34,7 +34,9 @@ exports.getChatRooms = async (req, res) => {
                         content: lastMessage.content,
                         sender: lastMessage.sender,
                         createdAt: lastMessage.createdAt,
-                        attachments: lastMessage.attachments || []
+                        attachments: lastMessage.attachments || [],
+                        messageType: lastMessage.messageType || 'regular',
+                        systemData: lastMessage.systemData || null
                     } : null
                 };
             })
@@ -143,19 +145,22 @@ exports.sendMessage = async (req, res) => {
         });        await message.save();
         // Populate the message with sender info before emitting
         const populatedMessage = await Message.findById(message._id).populate('sender', 'fullName email avatar');
-        
-        // Emit socket event to room for real-time update
+          // Emit socket event to room for real-time update
         const io = req.app.get('io');
         if (io) {
             // Emit to the specific chat room for real-time messaging
+            // console.log(`Emitting newMessage to room: ${id}`);
             io.to(id).emit('newMessage', populatedMessage);
             
             // Emit to all participants of this chat room to update their chat list
             const chatRoom = await ChatRoom.findById(id).populate('participants');
             if (chatRoom && chatRoom.participants) {
+                // console.log(`Emitting chatListUpdate to ${chatRoom.participants.length} participants`);
                 chatRoom.participants.forEach(async (participant) => {
                     // Emit to each participant's personal room to update chat list
-                    io.to(`user_${participant._id}`).emit('chatListUpdate', {
+                    const personalRoom = `user_${participant._id}`;
+                    // console.log(`Emitting chatListUpdate to room: ${personalRoom}`);
+                    io.to(personalRoom).emit('chatListUpdate', {
                         chatRoomId: id,
                         lastMessage: populatedMessage
                     });
@@ -240,18 +245,29 @@ exports.deleteChatRoom = async (req, res) => {
         }
 
         // Delete all messages in the chat room
-        await Message.deleteMany({ chatRoomId: id });
-
-        // Delete the chat room
+        await Message.deleteMany({ chatRoomId: id });        // Delete the chat room
         await ChatRoom.findByIdAndDelete(id);
-
+        
         // Emit socket event to all participants that the chat room was deleted
         const io = req.app.get('io');
         if (io) {
             // Notify all participants that the chat room was deleted
+            // console.log('Emitting chatRoomDeleted event to participants:', chatRoom.participants.map(p => p.toString()));
             chatRoom.participants.forEach((participantId) => {
-                io.to(`user_${participantId}`).emit('chatRoomDeleted', { chatRoomId: id });
+                const personalRoom = `user_${participantId}`;
+                // console.log(`Emitting chatRoomDeleted to room: ${personalRoom}`);
+                io.to(personalRoom).emit('chatRoomDeleted', { chatRoomId: id });
+                
+                // Also emit chatListUpdate to remove the chatroom from chat list
+                io.to(personalRoom).emit('chatListUpdate', {
+                    chatRoomId: id,
+                    action: 'delete', // Indicate this is a deletion
+                    lastMessage: null
+                });
+                console.log(`Emitted chatListUpdate (delete) to room: ${personalRoom}`);
             });
+        } else {
+            console.log('Socket.io instance not found');
         }
 
         res.status(200).json({ message: 'Chat room and its messages deleted successfully' });
@@ -330,7 +346,6 @@ exports.leaveChatRoom = async (req, res) => {
         }
         
         // Get user info before removing from participants
-        const User = require('../models/User');
         const leavingUser = await User.findById(userId).select('fullName');
         
         // Remove the user from participants
@@ -338,42 +353,59 @@ exports.leaveChatRoom = async (req, res) => {
         
         // Save the updated chat room
         await chatRoom.save();
-
+        
         // Create a system message about the user leaving
-        const Message = require('../models/Message');
         const systemMessage = new Message({
-            content: `${leavingUser.fullName} has left this chatroom`,
+            content: 'userLeftChatroom', // Translation key
+            systemData: { fullName: leavingUser.fullName }, // Data for interpolation
             sender: null, // null indicates system message
             chatRoomId: id,
             messageType: 'system',
             createdAt: new Date()
         });
         await systemMessage.save();
-
         // Emit socket event to notify remaining participants
         const io = req.app.get('io');
         if (io) {
-            // Notify remaining participants that someone left and send the system message
+            // console.log(`[leaveChatRoom] Emitting events for chatRoom ${id}, user ${userId} left`);
+            
+            // Prepare system message data for events
+            const systemMessageData = {
+                _id: systemMessage._id,
+                content: systemMessage.content,
+                sender: null,
+                chatRoomId: id,
+                messageType: 'system',
+                systemData: systemMessage.systemData,
+                createdAt: systemMessage.createdAt,
+                attachments: []
+            };
+            
+            // Send system message to all remaining participants in the chat room
+            io.to(id).emit('newMessage', systemMessageData);
+            // console.log(`[leaveChatRoom] Emitted newMessage to room ${id}`);
+            
+            // Notify remaining participants that someone left
             chatRoom.participants.forEach((participantId) => {
                 io.to(`user_${participantId}`).emit('participantLeft', { 
                     chatRoomId: id, 
                     userId: userId,
                     remainingParticipants: chatRoom.participants.length 
                 });
-            });            // Send system message to all remaining participants in the chat room
-            io.to(id).emit('newMessage', {
-                _id: systemMessage._id,
-                content: systemMessage.content,
-                sender: null,
-                chatRoomId: id,
-                messageType: 'system',
-                createdAt: systemMessage.createdAt,
-                attachments: []
+                
+                // Update chat list with system message as lastMessage
+                io.to(`user_${participantId}`).emit('chatListUpdate', {
+                    chatRoomId: id,
+                    lastMessage: systemMessageData
+                });
+                console.log(`[leaveChatRoom] Emitted chatListUpdate to user_${participantId}`);
             });
 
-            // Notify the user who left to update their chat list
+            // Notify the user who left to update their chat list (remove chatroom)
             io.to(`user_${userId}`).emit('chatRoomLeft', { chatRoomId: id });
-        }        res.status(200).json({ message: 'Left chat room successfully' });
+            // console.log(`[leaveChatRoom] Emitted chatRoomLeft to user_${userId}`);
+        }
+        res.status(200).json({ message: 'Left chat room successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error leaving chat room', error: error.message });
     }
