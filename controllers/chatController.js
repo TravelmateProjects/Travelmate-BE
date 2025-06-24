@@ -197,6 +197,22 @@ exports.getMessages = async (req, res) => {
 exports.deleteChatRoom = async (req, res) => {
     try {
         const { id } = req.params; // Chat room ID
+        const userId = req.account.userId; // Get the user who is trying to delete the chat room
+
+        // Find the chat room first to check ownership
+        const chatRoom = await ChatRoom.findById(id);
+        if (!chatRoom) {
+            return res.status(404).json({ message: 'Chat room not found' });
+        }
+
+        if (!chatRoom.isGroup) {
+            return res.status(403).json({ message: 'Private chat rooms cannot be deleted' });
+        }
+
+        // Check if the user is the creator of the chat room
+        if (chatRoom.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Only the chat room creator can delete this chat room' });
+        }
 
         // Find all messages in the chat room
         const messages = await Message.find({ chatRoomId: id });
@@ -220,9 +236,15 @@ exports.deleteChatRoom = async (req, res) => {
         await Message.deleteMany({ chatRoomId: id });
 
         // Delete the chat room
-        const chatRoom = await ChatRoom.findByIdAndDelete(id);
-        if (!chatRoom) {
-            return res.status(404).json({ message: 'Chat room not found' });
+        await ChatRoom.findByIdAndDelete(id);
+
+        // Emit socket event to all participants that the chat room was deleted
+        const io = req.app.get('io');
+        if (io) {
+            // Notify all participants that the chat room was deleted
+            chatRoom.participants.forEach((participantId) => {
+                io.to(`user_${participantId}`).emit('chatRoomDeleted', { chatRoomId: id });
+            });
         }
 
         res.status(200).json({ message: 'Chat room and its messages deleted successfully' });
@@ -272,5 +294,57 @@ exports.deleteMessage = async (req, res) => {
         res.status(200).json({ message: 'Message and its attachments deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting message', error: error.message });
+    }
+};
+
+exports.leaveChatRoom = async (req, res) => {
+    try {
+        const { id } = req.params; // Chat room ID
+        const userId = req.account.userId; // Get the user who is leaving the chat room
+
+        // Find the chat room
+        const chatRoom = await ChatRoom.findById(id);
+        if (!chatRoom) {
+            return res.status(404).json({ message: 'Chat room not found' });
+        }
+
+        // Check if the user is a participant in the chat room
+        if (!chatRoom.participants.includes(userId)) {
+            return res.status(400).json({ message: 'You are not a participant in this chat room' });
+        }
+
+        if (!chatRoom.isGroup) {
+            return res.status(403).json({ message: 'Private chat rooms cannot be left' });
+        }
+
+        // Check if the user is the creator of the chat room
+        if (chatRoom.createdBy.toString() === userId.toString()) {
+            return res.status(400).json({ message: 'Chat room creator cannot leave. You must delete the chat room or transfer ownership first.' });
+        }
+        // Remove the user from participants
+        chatRoom.participants = chatRoom.participants.filter(participantId => participantId.toString() !== userId.toString());
+        
+        // Save the updated chat room
+        await chatRoom.save();
+
+        // Emit socket event to notify remaining participants
+        const io = req.app.get('io');
+        if (io) {
+            // Notify remaining participants that someone left
+            chatRoom.participants.forEach((participantId) => {
+                io.to(`user_${participantId}`).emit('participantLeft', { 
+                    chatRoomId: id, 
+                    userId: userId,
+                    remainingParticipants: chatRoom.participants.length 
+                });
+            });
+
+            // Notify the user who left to update their chat list
+            io.to(`user_${userId}`).emit('chatRoomLeft', { chatRoomId: id });
+        }
+
+        res.status(200).json({ message: 'Left chat room successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error leaving chat room', error: error.message });
     }
 };
