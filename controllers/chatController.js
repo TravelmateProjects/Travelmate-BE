@@ -273,7 +273,7 @@ exports.deleteChatRoom = async (req, res) => {
                     action: 'delete', // Indicate this is a deletion
                     lastMessage: null
                 });
-                console.log(`Emitted chatListUpdate (delete) to room: ${personalRoom}`);
+                // console.log(`Emitted chatListUpdate (delete) to room: ${personalRoom}`);
             });
         } else {
             console.log('Socket.io instance not found');
