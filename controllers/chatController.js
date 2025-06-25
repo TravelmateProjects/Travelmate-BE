@@ -1,9 +1,9 @@
 const ChatRoom = require('../models/ChatRoom');
-const cloudinary = require('../configs/cloudinary');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const notificationUtils = require('../utils/notificationUtils');
+const chatUtils = require('../utils/chatUtils');
 
 exports.getAllChatRooms = async (req, res) => {
     try {
@@ -17,39 +17,7 @@ exports.getAllChatRooms = async (req, res) => {
 exports.getChatRooms = async (req, res) => {
     try {
         const userId = req.account.userId;
-        const chatRooms = await ChatRoom.find({ participants: userId }).populate('participants', 'fullName email avatar');
-        
-        // Get lastMessage for each chatRoom
-        const chatRoomsWithLastMessage = await Promise.all(
-            chatRooms.map(async (chatRoom) => {
-                // Find the latest message in this chatRoom
-                const lastMessage = await Message.findOne({ chatRoomId: chatRoom._id })
-                    .populate('sender', 'fullName email avatar')
-                    .sort({ createdAt: -1 }) // Sort to get the most recent message
-                    .lean(); // optimize performance by using lean()
-                  return {
-                    ...chatRoom.toObject(),
-                    lastMessage: lastMessage ? {
-                        _id: lastMessage._id,
-                        chatRoomId: lastMessage.chatRoomId,
-                        content: lastMessage.content,
-                        sender: lastMessage.sender,
-                        createdAt: lastMessage.createdAt,
-                        attachments: lastMessage.attachments || [],
-                        messageType: lastMessage.messageType || 'regular',
-                        systemData: lastMessage.systemData || null
-                    } : null
-                };
-            })
-        );
-        
-        // Sort chatRooms by lastMessage time (newest first)
-        chatRoomsWithLastMessage.sort((a, b) => {
-            if (!a.lastMessage && !b.lastMessage) return 0;
-            if (!a.lastMessage) return 1;
-            if (!b.lastMessage) return -1;
-            return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
-        });
+        const chatRoomsWithLastMessage = await chatUtils.getChatRoomsWithLastMessage(userId);
         
         res.status(200).json({ message: 'Get chatrooms successful', data: chatRoomsWithLastMessage });
     } catch (error) {
@@ -85,7 +53,17 @@ exports.createChatRoom = async (req, res) => {
         });
 
         await chatRoom.save();
-        res.status(201).json({ message: "Create chatroom successful", data: chatRoom });
+
+        // Populate the chat room with participant details for the response
+        const populatedChatRoom = await ChatRoom.findById(chatRoom._id).populate('participants', 'fullName email avatar');
+
+        // Emit socket event to all participants to update their chat lists
+        const io = req.app.get('io');
+        if (io) {
+            chatUtils.emitNewChatRoomEvent(io, populatedChatRoom);
+        }
+
+        res.status(201).json({ message: "Create chatroom successful", data: populatedChatRoom });
     } catch (error) {
         res.status(500).json({ message: 'Error creating chat room', error: error.message });
     }
@@ -103,40 +81,7 @@ exports.sendMessage = async (req, res) => {
             return res.status(404).json({ message: 'Chat room not found' });
         }
 
-        const attachments = [];
-        if (req.files) {
-            for (const [key, files] of Object.entries(req.files)) {
-                for (const file of files) {
-                    const fileExtension = file.originalname.split('.').pop(); // Extract file extension
-                    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9); // Generate a unique suffix
-                    const fileNameWithoutExtension = file.originalname.includes('.')
-                        ? file.originalname.substring(0, file.originalname.lastIndexOf('.'))
-                        : file.originalname; // Get the file name without extension if it exists
-                    const newFileName = `${fileNameWithoutExtension}-${uniqueSuffix}.${fileExtension}`; // Create a new file name including the extension
-
-                    const directoryPath = `MessageAttachments/${key.slice(0, -1)}`; // Determine directory based on file type
-                    const result = await new Promise((resolve, reject) => {
-                        cloudinary.uploader.upload_stream({
-                            resource_type: key === 'videos' ? 'video' : 'auto',
-                            folder: directoryPath,
-                            public_id: newFileName // Use the new file name including the extension
-                        }, (error, result) => {
-                            if (error) {
-                                reject(error);
-                            } else {
-                                resolve(result);
-                            }
-                        }).end(file.buffer);
-                    });
-
-                    attachments.push({
-                        type: key.slice(0, -1), // Remove the plural 's'
-                        url: result.secure_url, // Original URL from Cloudinary
-                        publicId: result.public_id
-                    });
-                }
-            }
-        }
+        const attachments = await chatUtils.processAttachments(req.files);
 
         const message = new Message({
             chatRoomId: id,
@@ -146,7 +91,7 @@ exports.sendMessage = async (req, res) => {
         });        await message.save();
         // Populate the message with sender info before emitting
         const populatedMessage = await Message.findById(message._id).populate('sender', 'fullName email avatar');
-          // Emit socket event to room for real-time update
+        // Emit socket event to room for real-time update
         const io = req.app.get('io');
         if (io) {
             // Emit to the specific chat room for real-time messaging
@@ -156,16 +101,13 @@ exports.sendMessage = async (req, res) => {
             // Emit to all participants of this chat room to update their chat list
             const chatRoom = await ChatRoom.findById(id).populate('participants');
             if (chatRoom && chatRoom.participants) {
-                // console.log(`Emitting chatListUpdate to ${chatRoom.participants.length} participants`);
+                chatUtils.emitChatListUpdate(io, chatRoom.participants.map(p => p._id), {
+                    chatRoomId: id,
+                    lastMessage: populatedMessage
+                });
+                
+                // ...existing notification code...
                 chatRoom.participants.forEach(async (participant) => {
-                    // Emit to each participant's personal room to update chat list
-                    const personalRoom = `user_${participant._id}`;
-                    // console.log(`Emitting chatListUpdate to room: ${personalRoom}`);
-                    io.to(personalRoom).emit('chatListUpdate', {
-                        chatRoomId: id,
-                        lastMessage: populatedMessage
-                    });
-                    
                     // Create notification for other participants (not the sender)
                     if (participant._id.toString() !== sender.toString()) {
                         try {
@@ -180,7 +122,8 @@ exports.sendMessage = async (req, res) => {
                         } catch (error) {
                             console.error('Error creating chat notification:', error);
                         }
-                    }});
+                    }
+                });
             }
         }
 
@@ -209,74 +152,33 @@ exports.getMessages = async (req, res) => {
 
 exports.deleteChatRoom = async (req, res) => {
     try {
-        const { id } = req.params; // Chat room ID
-        const userId = req.account.userId; // Get the user who is trying to delete the chat room
+        const { id } = req.params;
+        const userId = req.account.userId;
 
-        // Find the chat room first to check ownership
+        // Find and validate chat room
         const chatRoom = await ChatRoom.findById(id);
-        if (!chatRoom) {
-            return res.status(404).json({ message: 'Chat room not found' });
+        const validation = chatUtils.validateChatRoomPermissions(chatRoom, userId, 'delete');
+        
+        if (!validation.valid) {
+            return res.status(validation.status).json({ message: validation.error });
         }
 
-        if (!chatRoom.isGroup) {
-            return res.status(403).json({ message: 'Private chat rooms cannot be deleted' });
-        }
-
-        // Check if the user is the creator of the chat room
-        if (chatRoom.createdBy.toString() !== userId.toString()) {
-            return res.status(403).json({ message: 'Only the chat room creator can delete this chat room' });
-        }
-
-        // Find all messages in the chat room
-        const messages = await Message.find({ chatRoomId: id });
-
-        // Delete attachments from Cloudinary for each message
-        for (const message of messages) {
-            if (message.attachments && message.attachments.length > 0) {
-                for (const attachment of message.attachments) {
-                    try {
-                        await cloudinary.uploader.destroy(attachment.publicId, {
-                            resource_type: attachment.type === 'video' ? 'video' : attachment.type === 'image' ? 'image' : 'raw' // Ensure correct resource type
-                        });
-                    } catch (error) {
-                        console.error(`Failed to delete attachment with publicId ${attachment.publicId}:`, error);
-                    }
-                }
-            }
-        }
-        // Delete all messages in the chat room
-        await Message.deleteMany({ chatRoomId: id });
+        // Delete all messages and their attachments
+        await chatUtils.deleteAllMessagesInChatRoom(id);
 
         // Delete all notifications related to this chat room
         await Notification.deleteMany({ 
             relatedId: id, 
             relatedModel: 'ChatRoom' 
         });
-        // console.log(`Deleted all notifications for chatRoom: ${id}`);
 
         // Delete the chat room
         await ChatRoom.findByIdAndDelete(id);
         
-      // Emit socket event to all participants that the chat room was deleted
+        // Emit socket events
         const io = req.app.get('io');
         if (io) {
-            // Notify all participants that the chat room was deleted
-            // console.log('Emitting chatRoomDeleted event to participants:', chatRoom.participants.map(p => p.toString()));
-            chatRoom.participants.forEach((participantId) => {
-                const personalRoom = `user_${participantId}`;
-                // console.log(`Emitting chatRoomDeleted to room: ${personalRoom}`);
-                io.to(personalRoom).emit('chatRoomDeleted', { chatRoomId: id });
-                
-                // Also emit chatListUpdate to remove the chatroom from chat list
-                io.to(personalRoom).emit('chatListUpdate', {
-                    chatRoomId: id,
-                    action: 'delete', // Indicate this is a deletion
-                    lastMessage: null
-                });
-                // console.log(`Emitted chatListUpdate (delete) to room: ${personalRoom}`);
-            });
-        } else {
-            console.log('Socket.io instance not found');
+            chatUtils.emitChatRoomDeletedEvent(io, id, chatRoom.participants);
         }
 
         res.status(200).json({ message: 'Chat room and its messages deleted successfully' });
@@ -296,31 +198,58 @@ exports.deleteMessage = async (req, res) => {
             return res.status(404).json({ message: 'Message not found' });
         }
 
-        // Check if the user is the sender of the message
-        if (message.sender.toString() !== userId.toString()) {
-            return res.status(403).json({ message: 'You can only delete your own messages' });
+        // Check if the user is the sender of the message or if it's a system message
+        // System messages (sender is null) can only be deleted by chat room creator
+        if (message.sender) {
+            // Regular message - only sender can delete
+            if (message.sender.toString() !== userId.toString()) {
+                return res.status(403).json({ message: 'You can only delete your own messages' });
+            }
+        } else {
+            // System message - only chat room creator can delete
+            const chatRoom = await ChatRoom.findById(id);
+            if (!chatRoom || chatRoom.createdBy.toString() !== userId.toString()) {
+                return res.status(403).json({ message: 'You can only delete system messages if you are the chat room creator' });
+            }
         }
 
         // Delete the message
         await Message.findByIdAndDelete(messageId);
+        // console.log(`Message deleted: ${messageId} from chatroom: ${id}`);
 
         // Delete attachments from Cloudinary if they exist
-        if (message.attachments && message.attachments.length > 0) {
-            for (const attachment of message.attachments) {
-                try {
-                    await cloudinary.uploader.destroy(attachment.publicId, {
-                        resource_type: attachment.type === 'video' ? 'video' : attachment.type === 'image' ? 'image' : 'raw' // Ensure correct resource type
-                    });
-                } catch (error) {
-                    console.error(`Failed to delete attachment with publicId ${attachment.publicId}:`, error);
-                }
-            }
-        }
+        await chatUtils.deleteAttachmentsFromCloudinary(message.attachments);
+
+        // Get the new last message after deletion
+        const newLastMessage = await Message.findOne({ chatRoomId: id })
+            .populate('sender', 'fullName email avatar')
+            .sort({ createdAt: -1 })
+            .lean();
+            
+        // console.log(`New last message after deletion:`, newLastMessage ? newLastMessage._id : 'null');
 
         // Emit socket event to room for real-time update
         const io = req.app.get('io');
         if (io) {
             io.to(id).emit('messageDeleted', { messageId, chatRoomId: id });
+            
+            // Update chat list for all participants with new last message
+            const chatRoom = await ChatRoom.findById(id).populate('participants');
+            if (chatRoom && chatRoom.participants) {
+                chatUtils.emitChatListUpdate(io, chatRoom.participants.map(p => p._id), {
+                    chatRoomId: id,
+                    lastMessage: newLastMessage ? {
+                        _id: newLastMessage._id,
+                        chatRoomId: newLastMessage.chatRoomId,
+                        content: newLastMessage.content,
+                        sender: newLastMessage.sender,
+                        createdAt: newLastMessage.createdAt,
+                        attachments: newLastMessage.attachments || [],
+                        messageType: newLastMessage.messageType || 'regular',
+                        systemData: newLastMessage.systemData || null
+                    } : null
+                });
+            }
         }
 
         res.status(200).json({ message: 'Message and its attachments deleted successfully' });
@@ -331,27 +260,15 @@ exports.deleteMessage = async (req, res) => {
 
 exports.leaveChatRoom = async (req, res) => {
     try {
-        const { id } = req.params; // Chat room ID
-        const userId = req.account.userId; // Get the user who is leaving the chat room
+        const { id } = req.params;
+        const userId = req.account.userId;
 
-        // Find the chat room
+        // Find and validate chat room
         const chatRoom = await ChatRoom.findById(id);
-        if (!chatRoom) {
-            return res.status(404).json({ message: 'Chat room not found' });
-        }
-
-        // Check if the user is a participant in the chat room
-        if (!chatRoom.participants.includes(userId)) {
-            return res.status(400).json({ message: 'You are not a participant in this chat room' });
-        }
-
-        if (!chatRoom.isGroup) {
-            return res.status(403).json({ message: 'Private chat rooms cannot be left' });
-        }
-
-        // Check if the user is the creator of the chat room
-        if (chatRoom.createdBy.toString() === userId.toString()) {
-            return res.status(400).json({ message: 'Chat room creator cannot leave. You must delete the chat room or transfer ownership first.' });
+        const validation = chatUtils.validateChatRoomPermissions(chatRoom, userId, 'leave');
+        
+        if (!validation.valid) {
+            return res.status(validation.status).json({ message: validation.error });
         }
         
         // Get user info before removing from participants
@@ -359,61 +276,39 @@ exports.leaveChatRoom = async (req, res) => {
         
         // Remove the user from participants
         chatRoom.participants = chatRoom.participants.filter(participantId => participantId.toString() !== userId.toString());
-        
-        // Save the updated chat room
         await chatRoom.save();
         
-        // Create a system message about the user leaving
-        const systemMessage = new Message({
-            content: 'userLeftChatroom', // Translation key
-            systemData: { fullName: leavingUser.fullName }, // Data for interpolation
-            sender: null, // null indicates system message
-            chatRoomId: id,
-            messageType: 'system',
-            createdAt: new Date()
-        });
-        await systemMessage.save();
-        // Emit socket event to notify remaining participants
+        // Create system message
+        const systemMessageData = await chatUtils.createSystemMessage(
+            id, 
+            'userLeftChatroom', 
+            { fullName: leavingUser.fullName }
+        );
+        
+        // Emit socket events
         const io = req.app.get('io');
         if (io) {
-            // console.log(`[leaveChatRoom] Emitting events for chatRoom ${id}, user ${userId} left`);
-            
-            // Prepare system message data for events
-            const systemMessageData = {
-                _id: systemMessage._id,
-                content: systemMessage.content,
-                sender: null,
-                chatRoomId: id,
-                messageType: 'system',
-                systemData: systemMessage.systemData,
-                createdAt: systemMessage.createdAt,
-                attachments: []
-            };
-            
-            // Send system message to all remaining participants in the chat room
+            // Send system message to remaining participants
             io.to(id).emit('newMessage', systemMessageData);
-            // console.log(`[leaveChatRoom] Emitted newMessage to room ${id}`);
             
-            // Notify remaining participants that someone left
+            // Notify remaining participants and update chat lists
             chatRoom.participants.forEach((participantId) => {
                 io.to(`user_${participantId}`).emit('participantLeft', { 
                     chatRoomId: id, 
                     userId: userId,
                     remainingParticipants: chatRoom.participants.length 
                 });
-                
-                // Update chat list with system message as lastMessage
-                io.to(`user_${participantId}`).emit('chatListUpdate', {
-                    chatRoomId: id,
-                    lastMessage: systemMessageData
-                });
-                console.log(`[leaveChatRoom] Emitted chatListUpdate to user_${participantId}`);
+            });
+            
+            chatUtils.emitChatListUpdate(io, chatRoom.participants, {
+                chatRoomId: id,
+                lastMessage: systemMessageData
             });
 
-            // Notify the user who left to update their chat list (remove chatroom)
+            // Notify the user who left
             io.to(`user_${userId}`).emit('chatRoomLeft', { chatRoomId: id });
-            // console.log(`[leaveChatRoom] Emitted chatRoomLeft to user_${userId}`);
         }
+        
         res.status(200).json({ message: 'Left chat room successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error leaving chat room', error: error.message });
