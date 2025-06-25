@@ -156,7 +156,7 @@ const emitChatListUpdate = (io, participants, data) => {
     
     participants.forEach((participantId) => {
         const personalRoom = `user_${participantId}`;
-        console.log(`emitChatListUpdate: Emitting to room: ${personalRoom}`);
+        // console.log(`emitChatListUpdate: Emitting to room: ${personalRoom}`);
         io.to(personalRoom).emit('chatListUpdate', data);
     });
 };

@@ -88,7 +88,9 @@ exports.sendMessage = async (req, res) => {
             sender,
             content,
             attachments
-        });        await message.save();
+        });
+        
+        await message.save();
         // Populate the message with sender info before emitting
         const populatedMessage = await Message.findById(message._id).populate('sender', 'fullName email avatar');
         // Emit socket event to room for real-time update
