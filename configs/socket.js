@@ -14,7 +14,7 @@ function initSocket(io) {
     socket.on('joinPersonalRoom', (userId) => {
       const personalRoom = `user_${userId}`;
       socket.join(personalRoom);
-      console.log(`Socket ${socket.id} joined personal room: ${personalRoom}`);
+      // console.log(`Socket ${socket.id} joined personal room: ${personalRoom}`);
       
       // Emit confirmation back to client
       socket.emit('joinedPersonalRoom', { personalRoom, userId });
