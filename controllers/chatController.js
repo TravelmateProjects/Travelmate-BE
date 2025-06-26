@@ -2,6 +2,7 @@ const ChatRoom = require('../models/ChatRoom');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const TravelHistory = require('../models/TravelHistory');
 const notificationUtils = require('../utils/notificationUtils');
 const chatUtils = require('../utils/chatUtils');
 
@@ -314,5 +315,72 @@ exports.leaveChatRoom = async (req, res) => {
         res.status(200).json({ message: 'Left chat room successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error leaving chat room', error: error.message });
+    }
+};
+
+exports.createTravelHistory = async (req, res) => {
+    try {
+        const creatorId = req.account.userId;
+        const { id } = req.params; // Lấy chatRoomId từ params
+        const { plan, destination, arrivalDate, returnDate } = req.body;
+
+        // Find and validate chat room
+        const chatRoom = await ChatRoom.findById(id);
+
+        // Validate required fields
+        if (!destination || !arrivalDate || !returnDate) {
+            return res.status(400).json({ message: 'Destination, arrivalDate, and returnDate are required' });
+        }
+
+        // Lấy participants từ chatRoom nếu có, không thì lấy từ body, không cần ép creator vào nữa vì chatRoom đã chuẩn
+        let allParticipants = chatRoom && Array.isArray(chatRoom.participants)
+            ? chatRoom.participants
+            : [];
+
+        const travelHistory = new TravelHistory({
+            creatorId,
+            plan: plan || undefined,
+            participants: allParticipants,
+            destination,
+            arrivalDate,
+            returnDate
+        });
+        await travelHistory.save();
+
+        // Tạo system message cho chuyến du lịch mới bằng chatUtils.createSystemMessage
+        const creator = await User.findById(creatorId).select('fullName');
+        const systemMessageData = await chatUtils.createSystemMessage(
+            id,
+            'travelHistoryCreated',
+            { fullName: creator.fullName, destination }
+        );
+
+        // Emit socket events cho tất cả participants giống leaveChatRoom
+        const io = req.app.get('io');
+        
+        if (io) {
+            io.to(id).emit('newMessage', systemMessageData);
+
+            allParticipants.forEach((participantId) => {
+                io.to(`user_${participantId}`).emit('travelHistoryCreated', {
+                    travelHistoryId: travelHistory._id,
+                    creatorId,
+                    creatorName: creator.fullName,
+                    destination,
+                    participants: allParticipants,
+                    totalParticipants: allParticipants.length,
+                    systemMessage: systemMessageData
+                });
+            });
+            // Emit event tổng cho tất cả participants (giống chatUtils.emitChatListUpdate của leaveChatRoom)
+            chatUtils.emitChatListUpdate(io, allParticipants, {
+                chatRoomId: travelHistory._id,
+                lastMessage: systemMessageData
+            });
+        }
+
+        res.status(201).json({ message: 'Travel history created successfully', data: travelHistory });
+    } catch (error) {
+        res.status(500).json({ message: 'Error creating travel history', error: error.message });
     }
 };
