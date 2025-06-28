@@ -14,18 +14,25 @@ exports.authMiddleware = (req, res, next) => {
 };
 
 exports.verifyToken = (req, res, next) => {
+  // Get token from header or cookie
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; 
-  // const token = req.cookies && req.cookies.token; lấy từ cookie httpOnly
+  let token = authHeader && authHeader.split(' ')[1];
+  // console.log('Token from header:', token);
+
+  // If there is no token in the header, try to get it from the cookie
+  if (!token && req.cookies && req.cookies.accessToken) {
+    token = req.cookies.accessToken;
+  }
+  // console.log('Token from cookie:', token);
 
   if (!token) {
     return res.status(401).json({ message: 'No token provided' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); // nhớ thay đúng SECRET
-    req.account = decoded; // gán decoded vào request
-    // console.log('Decoded token:', decoded); // In ra để kiểm tra
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.account = decoded;
+    // console.log('Decoded token:', decoded);
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Invalid token' });
