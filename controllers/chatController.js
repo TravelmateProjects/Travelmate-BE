@@ -384,3 +384,48 @@ exports.createTravelHistory = async (req, res) => {
         res.status(500).json({ message: 'Error creating travel history', error: error.message });
     }
 };
+
+exports.addParticipant = async (req, res) => {
+    try {
+        const { id } = req.params; // chatRoomId
+        const { userIdToAdd } = req.body;
+        const userId = req.account.userId;
+
+        const chatRoom = await ChatRoom.findById(id);
+        if (!chatRoom) {
+            return res.status(404).json({ message: 'Chat room not found' });
+        }
+        if (chatRoom.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Only the chat room creator can add participants' });
+        }
+        if (chatRoom.participants.includes(userIdToAdd)) {
+            return res.status(400).json({ message: 'User is already a participant' });
+        }
+        chatRoom.participants.push(userIdToAdd);
+        await chatRoom.save();
+
+        // Create system message
+        const addedUser = await User.findById(userIdToAdd).select('fullName');
+        const systemMessageData = await chatUtils.createSystemMessage(
+            id,
+            'userAddedToChatroom',
+            { fullName: addedUser.fullName }
+        );
+
+        // Emit socket events
+        const io = req.app.get('io');
+        if (io) {
+            io.to(id).emit('newMessage', systemMessageData);
+            chatUtils.emitChatListUpdate(io, chatRoom.participants, {
+                chatRoomId: id,
+                lastMessage: systemMessageData
+            });
+            io.to(`user_${userIdToAdd}`).emit('addedToChatRoom', { chatRoomId: id });
+        }
+
+        res.status(200).json({ message: 'Participant added successfully', data: chatRoom });
+    } catch (error) {
+        res.status(500).json({ message: 'Error adding participant', error: error.message });
+    }
+};
+
