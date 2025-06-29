@@ -429,3 +429,46 @@ exports.addParticipant = async (req, res) => {
     }
 };
 
+exports.removeParticipant = async (req, res) => {
+    try {
+        const { id } = req.params; // chatRoomId
+        const { userIdToRemove } = req.body;
+        const userId = req.account.userId;
+
+        const chatRoom = await ChatRoom.findById(id);
+        if (!chatRoom) {
+            return res.status(404).json({ message: 'Chat room not found' });
+        }
+        if (chatRoom.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Only the chat room creator can remove participants' });
+        }
+        if (!chatRoom.participants.includes(userIdToRemove)) {
+            return res.status(400).json({ message: 'User is not a participant' });
+        }
+        chatRoom.participants = chatRoom.participants.filter(pid => pid.toString() !== userIdToRemove.toString());
+        await chatRoom.save();
+
+        // Create system message
+        const removedUser = await User.findById(userIdToRemove).select('fullName');
+        const systemMessageData = await chatUtils.createSystemMessage(
+            id,
+            'userKickedFromChatroom',
+            { fullName: removedUser.fullName }
+        );
+
+        // Create system message
+        const io = req.app.get('io');
+        if (io) {
+            io.to(id).emit('newMessage', systemMessageData);
+            chatUtils.emitChatListUpdate(io, chatRoom.participants, {
+                chatRoomId: id,
+                lastMessage: systemMessageData
+            });
+            io.to(`user_${userIdToRemove}`).emit('kickedFromChatRoom', { chatRoomId: id });
+        }
+
+        res.status(200).json({ message: 'Participant removed successfully', data: chatRoom });
+    } catch (error) {
+        res.status(500).json({ message: 'Error removing participant', error: error.message });
+    }
+};
