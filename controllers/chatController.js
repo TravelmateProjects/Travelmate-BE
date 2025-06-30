@@ -44,8 +44,9 @@ exports.createChatRoom = async (req, res) => {
         const { name, participants } = req.body;
         const createdBy = req.account.userId; // Assuming req.account contains authenticated user info
 
-        const isGroup = participants.length > 2; // Automatically set isGroup to true if participants are more than 2
-
+        // const isGroup = participants.length > 2; // Automatically set isGroup to true if participants are more than 2
+        const isGroup = true; // Force all chat rooms to be group chats(1-1 chatroom will be created auto)
+        
         const chatRoom = new ChatRoom({
             name,
             isGroup,
