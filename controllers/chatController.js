@@ -389,8 +389,17 @@ exports.createTravelHistory = async (req, res) => {
 exports.addParticipant = async (req, res) => {
     try {
         const { id } = req.params; // chatRoomId
-        const { userIdToAdd } = req.body;
+        let { userIdsToAdd } = req.body;
         const userId = req.account.userId;
+
+        // Support passing a single user as a string (legacy)
+        if (!Array.isArray(userIdsToAdd)) {
+            if (req.body.userIdToAdd) userIdsToAdd = [req.body.userIdToAdd];
+            else userIdsToAdd = [];
+        }
+        if (!userIdsToAdd || userIdsToAdd.length === 0) {
+            return res.status(400).json({ message: 'No userIds provided' });
+        }
 
         const chatRoom = await ChatRoom.findById(id);
         if (!chatRoom) {
@@ -399,34 +408,54 @@ exports.addParticipant = async (req, res) => {
         if (chatRoom.createdBy.toString() !== userId.toString()) {
             return res.status(403).json({ message: 'Only the chat room creator can add participants' });
         }
-        if (chatRoom.participants.includes(userIdToAdd)) {
-            return res.status(400).json({ message: 'User is already a participant' });
+        // Filter out users who are already in the group
+        const currentIds = chatRoom.participants.map(pid => pid.toString());
+        const newUserIds = userIdsToAdd.filter(uid => !currentIds.includes(uid));
+        if (newUserIds.length === 0) {
+            return res.status(400).json({ message: 'All users are already participants' });
         }
-        chatRoom.participants.push(userIdToAdd);
+        chatRoom.participants.push(...newUserIds);
         await chatRoom.save();
 
-        // Create system message
-        const addedUser = await User.findById(userIdToAdd).select('fullName');
-        const systemMessageData = await chatUtils.createSystemMessage(
-            id,
-            'userAddedToChatroom',
-            { fullName: addedUser.fullName }
-        );
-
         // Emit socket events
+        let systemMessageData = null;
+        const addedUsers = await User.find({ _id: { $in: newUserIds } }).select('fullName');
         const io = req.app.get('io');
-        if (io) {
-            io.to(id).emit('newMessage', systemMessageData);
+        if (addedUsers.length === 1) {
+            systemMessageData = await chatUtils.createSystemMessage(
+                id,
+                'userAddedToChatroom',
+                { fullName: addedUsers[0].fullName }
+            );
+            if (io) {
+                io.to(id).emit('newMessage', systemMessageData);
+            }
+        } else if (addedUsers.length > 1) {
+            const firstName = addedUsers[0].fullName;
+            const othersCount = addedUsers.length - 1;
+            systemMessageData = await chatUtils.createSystemMessage(
+                id,
+                'manyUserAddedToChatroom',
+                { fullName: firstName, othersCount }
+            );
+            if (io) {
+                io.to(id).emit('newMessage', systemMessageData);
+            }
+        }
+        // Send chat list updates and notifications to each new user
+        if (io && systemMessageData) {
             chatUtils.emitChatListUpdate(io, chatRoom.participants, {
                 chatRoomId: id,
                 lastMessage: systemMessageData
             });
-            io.to(`user_${userIdToAdd}`).emit('addedToChatRoom', { chatRoomId: id });
+            newUserIds.forEach(uid => {
+                io.to(`user_${uid}`).emit('addedToChatRoom', { chatRoomId: id });
+            });
         }
 
-        res.status(200).json({ message: 'Participant added successfully', data: chatRoom });
+        res.status(200).json({ message: 'Participants added successfully', data: chatRoom });
     } catch (error) {
-        res.status(500).json({ message: 'Error adding participant', error: error.message });
+        res.status(500).json({ message: 'Error adding participants', error: error.message });
     }
 };
 
