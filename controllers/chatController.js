@@ -44,8 +44,9 @@ exports.createChatRoom = async (req, res) => {
         const { name, participants } = req.body;
         const createdBy = req.account.userId; // Assuming req.account contains authenticated user info
 
-        const isGroup = participants.length > 2; // Automatically set isGroup to true if participants are more than 2
-
+        // const isGroup = participants.length > 2; // Automatically set isGroup to true if participants are more than 2
+        const isGroup = true; // Force all chat rooms to be group chats(1-1 chatroom will be created auto)
+        
         const chatRoom = new ChatRoom({
             name,
             isGroup,
@@ -382,5 +383,93 @@ exports.createTravelHistory = async (req, res) => {
         res.status(201).json({ message: 'Travel history created successfully', data: travelHistory });
     } catch (error) {
         res.status(500).json({ message: 'Error creating travel history', error: error.message });
+    }
+};
+
+exports.addParticipant = async (req, res) => {
+    try {
+        const { id } = req.params; // chatRoomId
+        const { userIdToAdd } = req.body;
+        const userId = req.account.userId;
+
+        const chatRoom = await ChatRoom.findById(id);
+        if (!chatRoom) {
+            return res.status(404).json({ message: 'Chat room not found' });
+        }
+        if (chatRoom.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Only the chat room creator can add participants' });
+        }
+        if (chatRoom.participants.includes(userIdToAdd)) {
+            return res.status(400).json({ message: 'User is already a participant' });
+        }
+        chatRoom.participants.push(userIdToAdd);
+        await chatRoom.save();
+
+        // Create system message
+        const addedUser = await User.findById(userIdToAdd).select('fullName');
+        const systemMessageData = await chatUtils.createSystemMessage(
+            id,
+            'userAddedToChatroom',
+            { fullName: addedUser.fullName }
+        );
+
+        // Emit socket events
+        const io = req.app.get('io');
+        if (io) {
+            io.to(id).emit('newMessage', systemMessageData);
+            chatUtils.emitChatListUpdate(io, chatRoom.participants, {
+                chatRoomId: id,
+                lastMessage: systemMessageData
+            });
+            io.to(`user_${userIdToAdd}`).emit('addedToChatRoom', { chatRoomId: id });
+        }
+
+        res.status(200).json({ message: 'Participant added successfully', data: chatRoom });
+    } catch (error) {
+        res.status(500).json({ message: 'Error adding participant', error: error.message });
+    }
+};
+
+exports.removeParticipant = async (req, res) => {
+    try {
+        const { id } = req.params; // chatRoomId
+        const { userIdToRemove } = req.body;
+        const userId = req.account.userId;
+
+        const chatRoom = await ChatRoom.findById(id);
+        if (!chatRoom) {
+            return res.status(404).json({ message: 'Chat room not found' });
+        }
+        if (chatRoom.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Only the chat room creator can remove participants' });
+        }
+        if (!chatRoom.participants.includes(userIdToRemove)) {
+            return res.status(400).json({ message: 'User is not a participant' });
+        }
+        chatRoom.participants = chatRoom.participants.filter(pid => pid.toString() !== userIdToRemove.toString());
+        await chatRoom.save();
+
+        // Create system message
+        const removedUser = await User.findById(userIdToRemove).select('fullName');
+        const systemMessageData = await chatUtils.createSystemMessage(
+            id,
+            'userKickedFromChatroom',
+            { fullName: removedUser.fullName }
+        );
+
+        // Create system message
+        const io = req.app.get('io');
+        if (io) {
+            io.to(id).emit('newMessage', systemMessageData);
+            chatUtils.emitChatListUpdate(io, chatRoom.participants, {
+                chatRoomId: id,
+                lastMessage: systemMessageData
+            });
+            io.to(`user_${userIdToRemove}`).emit('kickedFromChatRoom', { chatRoomId: id });
+        }
+
+        res.status(200).json({ message: 'Participant removed successfully', data: chatRoom });
+    } catch (error) {
+        res.status(500).json({ message: 'Error removing participant', error: error.message });
     }
 };
