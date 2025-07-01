@@ -236,3 +236,17 @@ exports.updateTravelStatus = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+// Get multiple users by an array of userIds
+exports.getManyByIds = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'No user ids provided' });
+    }
+    const users = await User.find({ _id: { $in: ids } });
+    res.status(200).json({ message: 'Users retrieved successfully', data: users });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to retrieve users: ${error.message}` });
+  }
+};

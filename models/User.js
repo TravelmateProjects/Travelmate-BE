@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema({
   phone: { type: String },
   address: { type: String },
   hometown: { type: String },
-  cccd: { type: String },
+  cccd: { type: String }, // Mã hoá lại
   hobbies: [{ type: String }],
   description: { type: String },
   rate: { type: Number, default: 0 },

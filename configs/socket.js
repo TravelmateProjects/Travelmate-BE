@@ -9,12 +9,15 @@ function initSocket(io) {
       socket.join(roomId);
       console.log(`Socket ${socket.id} joined room: ${roomId}`);
     });
-
+    
     // Handle user joining their personal room for chat list updates and notifications
     socket.on('joinPersonalRoom', (userId) => {
       const personalRoom = `user_${userId}`;
       socket.join(personalRoom);
-      console.log(`Socket ${socket.id} joined personal room: ${personalRoom}`);
+      // console.log(`Socket ${socket.id} joined personal room: ${personalRoom}`);
+      
+      // Emit confirmation back to client
+      socket.emit('joinedPersonalRoom', { personalRoom, userId });
     });
 
     // Handle notification acknowledgment
