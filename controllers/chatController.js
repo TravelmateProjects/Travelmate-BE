@@ -511,6 +511,35 @@ exports.handleChatAI = async (req, res) => {
         return res.status(400).json({ reply: 'Please enter a message.' });
     }
 
+    // Language detection:
+    // 1. If the message contains distinctive Vietnamese characters, treat it as Vietnamese
+    // 2. If the message contains common Vietnamese words/phrases, treat it as Vietnamese
+    // 3. Otherwise, treat it as English
+    const vietnameseCharacters = /[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i;
+    
+    // Array of common Vietnamese words/phrases for detection (written without accents)
+    const vietnameseWords = ['xin chao', 'cam on', 'khong', 'vang', 'toi', 'ban', 'viet nam', 'ha noi', 'sai gon', 
+        'ho chi minh', 'da nang', 'nha trang', 'lam sao', 'the nao', 'bao nhieu', 'o dau', 'khi nao', 'tai sao', 'gi vay'];
+    
+    // Check if it contains Vietnamese words (without accents)
+    const messageNoAccent = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const containsVietnameseWord = vietnameseWords.some(word => messageNoAccent.includes(word));
+    
+    // Combine both methods
+    const isVietnamese = vietnameseCharacters.test(userMessage) || containsVietnameseWord;
+
+    // Set up the prompt based on the detected language
+    let prompt;
+    if (isVietnamese) {
+        prompt = `Bạn là một hướng dẫn viên du lịch thân thiện, chuyên tư vấn về các địa điểm du lịch tại Việt Nam, bao gồm điểm tham quan, hoạt động vui chơi, món ăn đặc sản, và gợi ý lịch trình. Nếu người dùng hỏi về chủ đề không liên quan đến du lịch, hãy trả lời lịch sự rằng bạn chỉ hỗ trợ về du lịch.
+                Người dùng đang sử dụng tiếng Việt, hãy trả lời bằng tiếng Việt.
+                Câu hỏi: ${userMessage}`;
+    } else {
+        prompt = `You are a friendly travel guide specializing in Vietnamese tourist destinations, including attractions, activities, local cuisine, and itinerary suggestions. If users ask about topics unrelated to travel, politely explain that you only provide travel assistance.
+                IMPORTANT: The user is communicating in English, so you MUST respond ONLY in English. Do NOT use any Vietnamese words, including greetings like "xin chào". Your entire response must be 100% in English only.
+                Question: ${userMessage}`;
+    }
+
     try {
         const response = await axios.post(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -518,11 +547,10 @@ exports.handleChatAI = async (req, res) => {
                 // Gemini API uses 'contents' with 'parts' for messages
                 contents: [
                     {
-                        role: 'user', // System instructions are often handled in the prompt itself or as a preceding user/model turn.
+                        role: 'user',
                         parts: [
                             {
-                                text: `Bạn là một hướng dẫn viên du lịch thân thiện, chuyên tư vấn về các địa điểm du lịch tại Việt Nam, bao gồm điểm tham quan, hoạt động vui chơi, món ăn đặc sản, và gợi ý lịch trình. Nếu người dùng hỏi về chủ đề không liên quan đến du lịch, hãy trả lời lịch sự rằng bạn chỉ hỗ trợ về du lịch. 
-                                Người dùng hỏi: ${userMessage}`.trim(),
+                                text: prompt.trim(),
                             },
                         ],
                     },
