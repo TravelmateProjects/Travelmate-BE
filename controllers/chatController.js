@@ -5,6 +5,7 @@ const Notification = require('../models/Notification');
 const TravelHistory = require('../models/TravelHistory');
 const notificationUtils = require('../utils/notificationUtils');
 const chatUtils = require('../utils/chatUtils');
+const axios = require('axios');
 
 exports.getAllChatRooms = async (req, res) => {
     try {
@@ -500,5 +501,45 @@ exports.removeParticipant = async (req, res) => {
         res.status(200).json({ message: 'Participant removed successfully', data: chatRoom });
     } catch (error) {
         res.status(500).json({ message: 'Error removing participant', error: error.message });
+    }
+};
+
+exports.handleChatAI = async (req, res) => {
+    const userMessage = req.body.message;
+
+    if (!userMessage) {
+        return res.status(400).json({ reply: 'Please enter a message.' });
+    }
+
+    try {
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+            {
+                // Gemini API uses 'contents' with 'parts' for messages
+                contents: [
+                    {
+                        role: 'user', // System instructions are often handled in the prompt itself or as a preceding user/model turn.
+                        parts: [
+                            {
+                                text: `Bạn là một hướng dẫn viên du lịch thân thiện, chuyên tư vấn về các địa điểm du lịch tại Việt Nam, bao gồm điểm tham quan, hoạt động vui chơi, món ăn đặc sản, và gợi ý lịch trình. Nếu người dùng hỏi về chủ đề không liên quan đến du lịch, hãy trả lời lịch sự rằng bạn chỉ hỗ trợ về du lịch. 
+                                Người dùng hỏi: ${userMessage}`.trim(),
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        // Retrieve the reply from the Gemini API response
+        const reply = response.data.candidates[0].content.parts[0].text;
+        res.json({ reply });
+    } catch (err) {
+        console.error('Gemini Error:', err.response?.data || err.message);
+        res.status(500).json({ reply: 'Sorry, an error occurred. Please try again later.' });
     }
 };
