@@ -504,57 +504,163 @@ exports.removeParticipant = async (req, res) => {
     }
 };
 
+// Store conversation history in memory (will reset when server restarts)
+const conversationHistory = new Map();
+
 exports.handleChatAI = async (req, res) => {
-    const userMessage = req.body.message;
+    const { message: userMessage, conversationId } = req.body;
+    const userId = req.account.userId;
+    
+    // Create a unique conversation ID if not provided or use existing one
+    const convId = conversationId || `${userId}_${Date.now()}`;
 
     if (!userMessage) {
         return res.status(400).json({ reply: 'Please enter a message.' });
     }
 
     // Language detection:
-    // 1. If the message contains distinctive Vietnamese characters, treat it as Vietnamese
-    // 2. If the message contains common Vietnamese words/phrases, treat it as Vietnamese
-    // 3. Otherwise, treat it as English
+    // 1. First check for distinctive Vietnamese characters (diacritics)
+    // 2. Then check for common Vietnamese words/phrases (more specific matching)
+    // 3. Default to English if no clear Vietnamese indicators
     const vietnameseCharacters = /[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i;
     
-    // Array of common Vietnamese words/phrases for detection (written without accents)
-    const vietnameseWords = ['xin chao', 'cam on', 'khong', 'vang', 'toi', 'ban', 'viet nam', 'ha noi', 'sai gon', 
-        'ho chi minh', 'da nang', 'nha trang', 'lam sao', 'the nao', 'bao nhieu', 'o dau', 'khi nao', 'tai sao', 'gi vay'];
-    
-    // Check if it contains Vietnamese words (without accents)
-    const messageNoAccent = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const containsVietnameseWord = vietnameseWords.some(word => messageNoAccent.includes(word));
-    
-    // Combine both methods
-    const isVietnamese = vietnameseCharacters.test(userMessage) || containsVietnameseWord;
+    // Vietnamese words/phrases for detection (excluding place names that appear in English)
+    const vietnameseWords = [
+        'xin chào', 'xin chao', 'chào', 'chao',
+        'cảm ơn', 'cam on', 'cám ơn',
+        'không', 'khong',
+        'vâng', 'vang', 'dạ', 'da',
+        'tôi', 'toi', 'mình', 'minh',
+        'bạn', 'ban', 'anh', 'chị', 'chi', 'em',
+        'làm sao', 'lam sao',
+        'thế nào', 'the nao',
+        'bao nhiêu', 'bao nhieu',
+        'ở đâu', 'o dau',
+        'khi nào', 'khi nao',
+        'tại sao', 'tai sao',
+        'gì vậy', 'gi vay',
+        'có thể', 'co the',
+        'có', 'co',
+        'là', 'la',
+        'này', 'nay',
+        'được', 'duoc',
+        'và', 'va',
+        'hoặc', 'hoac',
+        'với', 'voi',
+        'của', 'cua',
+        'cho', 'den',
+        'từ', 'tu',
+        'rất', 'rat',
+        'nhiều', 'nhieu'
+    ];
 
-    // Set up the prompt based on the detected language
-    let prompt;
-    if (isVietnamese) {
-        prompt = `Bạn là một hướng dẫn viên du lịch thân thiện, chuyên tư vấn về các địa điểm du lịch tại Việt Nam, bao gồm điểm tham quan, hoạt động vui chơi, món ăn đặc sản, và gợi ý lịch trình. Nếu người dùng hỏi về chủ đề không liên quan đến du lịch, hãy trả lời lịch sự rằng bạn chỉ hỗ trợ về du lịch.
-                Người dùng đang sử dụng tiếng Việt, hãy trả lời bằng tiếng Việt.
-                Câu hỏi: ${userMessage}`;
+    // English indicator words that strongly suggest English
+    const englishWords = [
+        'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+        'i', 'you', 'he', 'she', 'it', 'we', 'they', 'my', 'your', 'his', 'her', 'our', 'their',
+        'want', 'need', 'like', 'love', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+        'can', 'could', 'should', 'may', 'might', 'must',
+        'travel', 'trip', 'vacation', 'holiday', 'city', 'place', 'where', 'when', 'how', 'what', 'why',
+        'hello', 'hi', 'thank', 'thanks', 'please', 'sorry', 'yes', 'no'
+    ];
+    
+    // Normalize message for comparison (remove accents and convert to lowercase)
+    const messageNoAccent = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // Check for Vietnamese word matches (with word boundaries)
+    const containsVietnameseWord = vietnameseWords.some(word => {
+        const wordNoAccent = word.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const regex = new RegExp(`\\b${wordNoAccent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        return regex.test(messageNoAccent);
+    });
+
+    // Check for English word matches (with word boundaries)
+    const containsEnglishWord = englishWords.some(word => {
+        const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        return regex.test(messageNoAccent);
+    });
+    
+    // Language detection logic:
+    // 1. Vietnamese characters (diacritics) are the strongest indicator for Vietnamese
+    // 2. If no diacritics, check word indicators
+    // 3. English words override Vietnamese words when no diacritics present
+    let isVietnamese;
+    if (vietnameseCharacters.test(userMessage)) {
+        // Strong Vietnamese indicator
+        isVietnamese = true;
+    } else if (containsEnglishWord && !containsVietnameseWord) {
+        // Strong English indicator
+        isVietnamese = false;
+    } else if (containsVietnameseWord && !containsEnglishWord) {
+        // Only Vietnamese words detected
+        isVietnamese = true;
+    } else if (containsEnglishWord && containsVietnameseWord) {
+        // Mixed indicators - lean towards English if no diacritics
+        isVietnamese = false;
     } else {
-        prompt = `You are a friendly travel guide specializing in Vietnamese tourist destinations, including attractions, activities, local cuisine, and itinerary suggestions. If users ask about topics unrelated to travel, politely explain that you only provide travel assistance.
-                IMPORTANT: The user is communicating in English, so you MUST respond ONLY in English. Do NOT use any Vietnamese words, including greetings like "xin chào". Your entire response must be 100% in English only.
-                Question: ${userMessage}`;
+        // No clear indicators - default to English for international context
+        isVietnamese = false;
+    }
+
+    // Get or create conversation history
+    if (!conversationHistory.has(convId)) {
+        conversationHistory.set(convId, []);
+    }
+    const history = conversationHistory.get(convId);
+
+    // Limit conversation history to last 20 messages to avoid token limits
+    if (history.length > 20) {
+        history.splice(0, history.length - 20);
+    }
+
+    // Build conversation contents for Gemini API
+    const contents = [];
+    
+    // For conversation with context, build a single comprehensive prompt
+    let contextualPrompt;
+    if (isVietnamese) {
+        contextualPrompt = `Bạn là một hướng dẫn viên du lịch thân thiện, chuyên tư vấn về các địa điểm du lịch tại Việt Nam, bao gồm điểm tham quan, hoạt động vui chơi, món ăn đặc sản, và gợi ý lịch trình. Nếu người dùng hỏi về chủ đề không liên quan đến du lịch, hãy trả lời lịch sự rằng bạn chỉ hỗ trợ về du lịch.
+                Người dùng đang sử dụng tiếng Việt, hãy trả lời bằng tiếng Việt.`;
+    } else {
+        contextualPrompt = `You are a friendly travel guide specializing in Vietnamese tourist destinations, including attractions, activities, local cuisine, and itinerary suggestions. If users ask about topics unrelated to travel, politely explain that you only provide travel assistance.
+                IMPORTANT: The user is communicating in English, so you MUST respond ONLY in English. Do NOT use any Vietnamese words, including greetings like "xin chào". Your entire response must be 100% in English only.`;
+    }
+
+    // If this is the first message, add the full prompt
+    if (history.length === 0) {
+        contents.push({
+            role: 'user',
+            parts: [{ text: `${contextualPrompt}\n\nCâu hỏi: ${userMessage}` }]
+        });
+    } else {
+        // For subsequent messages, include conversation context
+        let conversationContext = '';
+        for (let i = 0; i < history.length; i += 2) {
+            if (history[i] && history[i + 1]) {
+                const userMsg = history[i].content.replace(contextualPrompt, '').replace('Câu hỏi:', '').replace('Question:', '').trim();
+                const aiMsg = history[i + 1].content;
+                conversationContext += `User: ${userMsg}\nAI: ${aiMsg}\n\n`;
+            }
+        }
+        
+        const questionLabel = isVietnamese ? 'Câu hỏi hiện tại:' : 'Current question:';
+        const conversationLabel = isVietnamese ? 'Đoạn hội thoại trước:' : 'Previous conversation:';
+        
+        contents.push({
+            role: 'user',
+            parts: [{ text: `${contextualPrompt}\n\n${conversationLabel}\n${conversationContext}${questionLabel} ${userMessage}` }]
+        });
     }
 
     try {
         const response = await axios.post(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
             {
-                // Gemini API uses 'contents' with 'parts' for messages
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [
-                            {
-                                text: prompt.trim(),
-                            },
-                        ],
-                    },
-                ],
+                contents: contents,
+                generationConfig: {
+                    temperature: 0.7,
+                    // maxOutputTokens: 1000,
+                }
             },
             {
                 headers: {
@@ -563,11 +669,98 @@ exports.handleChatAI = async (req, res) => {
             }
         );
 
+        // Check if response has the expected structure
+        if (!response.data || !response.data.candidates || !response.data.candidates[0]) {
+            console.error('Invalid Gemini API response structure:', response.data);
+            return res.status(500).json({ reply: 'Invalid response from AI service. Please try again.' });
+        }
+
+        // Check if the candidate has content and parts
+        const candidate = response.data.candidates[0];
+        if (!candidate.content || !candidate.content.parts || !candidate.content.parts[0]) {
+            console.error('Invalid candidate structure:', candidate);
+            return res.status(500).json({ reply: 'Invalid response structure from AI service. Please try again.' });
+        }
+
         // Retrieve the reply from the Gemini API response
-        const reply = response.data.candidates[0].content.parts[0].text;
-        res.json({ reply });
+        const reply = candidate.content.parts[0].text;
+        
+        if (!reply) {
+            console.error('Empty reply from Gemini API');
+            return res.status(500).json({ reply: 'Received empty response from AI service. Please try again.' });
+        }
+        
+        // Add messages to conversation history
+        if (history.length === 0) {
+            // For first message, store the contextual prompt and response
+            history.push({ role: 'user', content: `${contextualPrompt}\n\nCâu hỏi: ${userMessage}` });
+            history.push({ role: 'model', content: reply });
+        } else {
+            // For subsequent messages, store user message and response
+            history.push({ role: 'user', content: userMessage });
+            history.push({ role: 'model', content: reply });
+        }
+        
+        // Set expiration for conversation (optional - cleanup after 1 hour)
+        setTimeout(() => {
+            if (conversationHistory.has(convId)) {
+                conversationHistory.delete(convId);
+            }
+        }, 60 * 60 * 1000); // 1 hour
+
+        res.json({ 
+            reply, 
+            conversationId: convId,
+            messageCount: Math.floor(history.length / 2) // Number of exchanges
+        });
+        // console.log("conversationId:", convId);
     } catch (err) {
-        console.error('Gemini Error:', err.response?.data || err.message);
+        console.error('Gemini Error:', err.message);
+        
+        // Check if it's a rate limit or quota error
+        if (err.response?.status === 429) {
+            return res.status(500).json({ reply: 'AI service is temporarily busy. Please try again in a moment.' });
+        } else if (err.response?.status === 403) {
+            return res.status(500).json({ reply: 'AI service access denied. Please check API configuration.' });
+        } else if (err.response?.data?.error?.message) {
+            return res.status(500).json({ reply: `AI service error: ${err.response.data.error.message}` });
+        }
+        
         res.status(500).json({ reply: 'Sorry, an error occurred. Please try again later.' });
+    }
+};
+
+// Add endpoint to clear conversation
+exports.clearChatAI = async (req, res) => {
+    try {
+        const { conversationId } = req.body;
+        const userId = req.account.userId;
+        // console.log("conversationId:", conversationId);
+        
+        if (conversationId) {
+            // Clear specific conversation
+            if (conversationHistory.has(conversationId)) {
+                conversationHistory.delete(conversationId);
+                res.json({ message: 'Conversation cleared successfully' });
+            } else {
+                res.status(404).json({ message: 'Conversation not found' });
+            }
+        } else {
+            // Clear all conversations for this user
+            let deletedCount = 0;
+            for (const [convId, history] of conversationHistory.entries()) {
+                if (convId.startsWith(`${userId}_`)) {
+                    conversationHistory.delete(convId);
+                    deletedCount++;
+                }
+            }
+            res.json({ 
+                message: 'All AI conversations cleared successfully', 
+                deletedCount 
+            });
+        }
+    } catch (error) {
+        console.error('Error clearing AI conversation:', error.message);
+        res.status(500).json({ message: 'Error clearing conversation', error: error.message });
     }
 };
