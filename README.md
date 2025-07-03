@@ -58,13 +58,17 @@ Travelmate-BE/
 ├── public/             # Static files
 ├── routes/             # Application routes
 ├── tests/              # Test files
+│   ├── routes/         # Route test files
+│   ├── swagger/        # API documentation
+│   │   ├── api-docs.yaml # OpenAPI specification
+│   │   └── swaggerOptions.js # Swagger configuration
+│   ├── setup.js        # Jest setup file
+│   └── README.md       # Testing documentation
 ├── app.js              # Main application file
 ├── docker-compose.yml  # Docker configuration
 ├── Dockerfile          # Dockerfile for containerization
 ├── nodemon.json        # Nodemon configuration
 ├── package.json        # Project metadata and dependencies
-├── swaggerOptions.js   # Swagger configuration
-└── api-docs.yaml       # API documentation in YAML format
 ```
 
 ## License

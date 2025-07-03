@@ -429,7 +429,7 @@ components:
         userIsReported:
           type: string
           format: uuid
-          example: "64b7f3c2e4b0a3d2f8e4b0a4"
+          example: "64b7f3c2e4b0a4"
         titleReport:
           type: string
           example: "Spam"
