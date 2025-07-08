@@ -4,67 +4,94 @@ const { uploadFilesToCloudinary } = require("../utils/cloudinaryUtils");
 
 exports.createUserBlog = async (req, res) => {
   try {
-    const userId = req.account.userId; // Extract userId from token
-    const { content, address } = req.body; // Include address from request body
+    const userId = req.account.userId;
+    const { content, address, adTargetUrl } = req.body;
+
+    // Safely convert isAd string to boolean
+    const isAd = req.body.isAd === "true";
+
+    // Validate required content
+    if (!content || content.trim() === "") {
+      return res.status(400).json({ message: "Content is required." });
+    }
+
+    // Validate ad URL if it's an ad post
+    if (isAd && !adTargetUrl?.trim()) {
+      return res.status(400).json({
+        message: "Advertisement target URL is required for ad posts.",
+      });
+    }
 
     let uploadedImages = [];
-    let uploadedVideo = null;
+    let uploadedVideos = [];
 
-    // Use the consolidated function for both images and videos
+    // Handle uploaded files (images/videos)
     if (req.files) {
+      // 🖼️ Process uploaded images (max 10)
       if (req.files.images) {
-        if (req.files.images.length > 10) {
+        const imageFiles = Array.isArray(req.files.images)
+          ? req.files.images
+          : [req.files.images];
+
+        if (imageFiles.length > 10) {
           return res
             .status(400)
-            .json({ message: "You can upload up to 10 images only" });
+            .json({ message: "You can upload up to 10 images." });
         }
+
         uploadedImages = await uploadFilesToCloudinary(
-          req.files.images,
+          imageFiles,
           "Blog/Images"
         );
       }
 
+      //Process uploaded video (max 1)
       if (req.files.videos) {
-        if (req.files.videos.length > 1) {
+        const videoFiles = Array.isArray(req.files.videos)
+          ? req.files.videos
+          : [req.files.videos];
+
+        if (videoFiles.length > 1) {
           return res
             .status(400)
-            .json({ message: "You can upload only 1 video" });
+            .json({ message: "Only one video can be uploaded." });
         }
-        uploadedVideo = await uploadFilesToCloudinary(
-          req.files.videos,
+
+        uploadedVideos = await uploadFilesToCloudinary(
+          videoFiles,
           "Blog/Videos",
           "video"
         );
       }
     }
 
-    // Ensure uploadedVideo is directly assigned to the video field
+    //Create and save the new blog post
     const newUserBlog = new Blog({
       userId,
-      content,
-      address, // Add address to the document
+      content: content.trim(),
+      address: address?.trim() || "",
       images: uploadedImages,
-      videos: uploadedVideo || [], // Directly assign uploadedVideo
+      videos: uploadedVideos,
+      isAd,
+      adTargetUrl: isAd ? adTargetUrl?.trim() : null,
     });
 
-    // Save the document to the database
     await newUserBlog.save();
 
-    res.status(201).json({
-      message: "User blog created successfully",
+    return res.status(201).json({
+      message: "Blog post created successfully.",
       blog: newUserBlog,
     });
   } catch (error) {
-    console.error("Error creating user blog:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("Error creating blog post:", error);
+    return res.status(500).json({ message: "Internal server error." });
   }
 };
 
 exports.getAllBlogs = async (req, res) => {
   try {
-    // Fetch all blogs, populate user info
     const blogs = await Blog.find({})
-      .populate("userId", "fullName email avatar") // Lấy thông tin user cơ bản
+      .populate("userId", "fullName email avatar")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -79,19 +106,19 @@ exports.getAllBlogs = async (req, res) => {
 
 exports.getUserBlogs = async (req, res) => {
   try {
-    const userId = req.account.userId; // Lấy userId từ token
+    const userId = req.account.userId;
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    console.log(`Fetching blogs for userId: ${userId}`); // Debug log
+    console.log(`Fetching blogs for userId: ${userId}`);
     const userBlogs = await Blog.find({ userId })
       .populate("userId", "fullName email avatar")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
       message: "User blogs fetched successfully",
-      blogs: userBlogs || [], // Trả về mảng rỗng nếu không có blog
+      blogs: userBlogs || [],
     });
   } catch (error) {
     console.error("Error fetching user blogs:", error);
@@ -125,17 +152,14 @@ exports.getUserBlogById = async (req, res) => {
 exports.updateUserBlog = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, address, existingImagePublicIds, existingVideoPublicIds } =
-      req.body;
-
-    // console.log("Update blog request:", {
-    //   id,
-    //   content,
-    //   address,
-    //   existingImagePublicIds,
-    //   existingVideoPublicIds,
-    //   files: req.files ? Object.keys(req.files) : null,
-    // });
+    const {
+      content,
+      address,
+      isAd,
+      adTargetUrl,
+      existingImagePublicIds,
+      existingVideoPublicIds,
+    } = req.body;
 
     const userBlog = await Blog.findById(id);
 
@@ -151,15 +175,15 @@ exports.updateUserBlog = async (req, res) => {
 
     if (content) userBlog.content = content;
     if (address) userBlog.address = address;
+    userBlog.isAd = isAd || false;
+    userBlog.adTargetUrl = isAd ? adTargetUrl : null;
 
     const keepImagePublicIds = existingImagePublicIds
       ? JSON.parse(existingImagePublicIds)
       : [];
-    let keepVideoPublicIds = existingVideoPublicIds
+    const keepVideoPublicIds = existingVideoPublicIds
       ? JSON.parse(existingVideoPublicIds)
       : [];
-
-    // console.log("Parsed public IDs:", { keepImagePublicIds, keepVideoPublicIds });
 
     if (userBlog.images && userBlog.images.length > 0) {
       const imagesToKeep = userBlog.images.filter((image) =>
@@ -173,7 +197,6 @@ exports.updateUserBlog = async (req, res) => {
         if (image.publicId) {
           try {
             await cloudinary.uploader.destroy(image.publicId);
-            // console.log(`Deleted image with publicId ${image.publicId} from Cloudinary`);
           } catch (error) {
             console.error(
               `Error deleting image with publicId ${image.publicId}:`,
@@ -200,7 +223,6 @@ exports.updateUserBlog = async (req, res) => {
             await cloudinary.uploader.destroy(video.publicId, {
               resource_type: "video",
             });
-            // console.log(`Deleted video with publicId ${video.publicId} from Cloudinary`);
           } catch (error) {
             console.error(
               `Error deleting video with publicId ${video.publicId}:`,
@@ -266,26 +288,22 @@ exports.deleteUserBlog = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Find the blog by ID
     const userBlog = await Blog.findById(id);
 
     if (!userBlog) {
       return res.status(404).json({ message: "Blog not found" });
     }
 
-    // Check if the user is the owner of the blog
     if (userBlog.userId.toString() !== req.account.userId) {
       return res
         .status(403)
         .json({ message: "You are not authorized to delete this blog" });
     }
 
-    // Delete images from Cloudinary
     for (const image of userBlog.images) {
       if (image.publicId) {
         try {
           await cloudinary.uploader.destroy(image.publicId);
-          // console.log(`Deleted image with publicId ${image.publicId} from Cloudinary`);
         } catch (error) {
           console.error(
             `Error deleting image with publicId ${image.publicId}:`,
@@ -295,14 +313,12 @@ exports.deleteUserBlog = async (req, res) => {
       }
     }
 
-    // Delete videos from Cloudinary
     for (const video of userBlog.videos) {
       if (video.publicId) {
         try {
           await cloudinary.uploader.destroy(video.publicId, {
             resource_type: "video",
           });
-          // console.log(`Deleted video with publicId ${video.publicId} from Cloudinary`);
         } catch (error) {
           console.error(
             `Error deleting video with publicId ${video.publicId}:`,
@@ -312,7 +328,6 @@ exports.deleteUserBlog = async (req, res) => {
       }
     }
 
-    // Delete the blog from the database
     await userBlog.deleteOne();
 
     res.status(200).json({ message: "Blog deleted successfully" });
