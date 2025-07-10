@@ -534,3 +534,74 @@ exports.changePassword = async (req, res) => {
   }
 };
 
+// Tạo tài khoản partner bởi admin
+exports.createPartnerAccount = async (req, res) => {
+  const { fullName, email, phone, username } = req.body;
+  try {
+    // Kiểm tra email đã tồn tại chưa
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: 'Email đã tồn tại.' });
+
+    // Kiểm tra username đã tồn tại chưa
+    const existingAccount = await Account.findOne({ username });
+    if (existingAccount) return res.status(400).json({ message: 'Username đã tồn tại.' });
+
+    // Tạo user mới
+    const newUser = new User({ fullName, email, phone });
+    await newUser.save();
+
+    // Tạo password random
+    const password = Math.random().toString(36).slice(-8); // random 8 ký tự
+
+    // Tạo account partner
+    const newAccount = new Account({
+      username,
+      password,
+      userId: newUser._id,
+      role: 'partner',
+      accountStatus: true,
+    });
+    await newAccount.save();
+
+    // Gửi mail cho partner
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Bạn đã trở thành Partner của Travelmate!',
+      html: `
+        <div style="font-family: Arial, sans-serif; background: #f6f6f6; padding: 32px;">
+          <div style="max-width: 480px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px 24px;">
+            <div style="text-align:center; margin-bottom: 24px;">
+              <img src="https://res.cloudinary.com/dvoyjeco3/image/upload/v1748492096/Assets/Images/w4gsxcmtnq5sinujgmwd.png" alt="Travelmate Logo" style="width: 180px; height: 60px; object-fit: contain; margin-bottom: 8px;" />
+              <h2 style="color: #2a7be4; margin: 0;">Chúc mừng bạn đã trở thành Partner!</h2>
+            </div>
+            <p style="font-size: 16px; color: #222; margin-bottom: 18px;">Xin chào <b>${fullName}</b>,</p>
+            <p style="font-size: 16px; color: #222; margin-bottom: 18px;">Bạn đã được admin Travelmate tạo tài khoản Partner.<br>Vui lòng đăng nhập để cập nhật thêm thông tin.</p>
+            <div style="margin: 24px 0;">
+              <div style="font-size: 15px; color: #333; margin-bottom: 8px;">Thông tin đăng nhập:</div>
+              <div style="font-size: 16px; color: #2a7be4; margin-bottom: 4px;"><b>Username:</b> ${username}</div>
+              <div style="font-size: 16px; color: #2a7be4; margin-bottom: 4px;"><b>Password:</b> ${password}</div>
+              <div style="font-size: 15px; color: #333;">Đăng nhập tại: <a href="https://your-domain.com/login" style="color: #2a7be4;">Travelmate Web</a></div>
+            </div>
+            <p style="font-size: 15px; color: #555;">Sau khi đăng nhập, bạn nên đổi mật khẩu và cập nhật thông tin cá nhân.</p>
+            <div style="margin-top: 32px; text-align:center; color: #aaa; font-size: 13px;">&copy; ${new Date().getFullYear()} Travelmate</div>
+          </div>
+        </div>
+      `
+    };
+    await transporter.sendMail(mailOptions);
+
+    res.status(201).json({ message: 'Tạo partner thành công, đã gửi mail cho partner.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Lỗi server khi tạo partner.' });
+  }
+};
+
