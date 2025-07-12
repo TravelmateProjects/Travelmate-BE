@@ -206,10 +206,10 @@ exports.getAllUserTravelHistory = async (req, res) => {
             .sort({ arrivalDate: -1 }) // Sort by arrivalDate in descending order
             .populate('participants', 'fullName email avatar')
             .populate('creatorId', 'fullName email avatar')
-            .populate({
-                path: 'plan',
-                select: 'plans', // Only select the plans array from TravelPlan
-            });
+            // .populate({
+            //     path: 'plan',
+            //     select: 'plans', // Only select the plans array from TravelPlan
+            // });
         
         res.status(200).json({
             success: true,
