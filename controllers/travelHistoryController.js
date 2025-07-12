@@ -14,13 +14,19 @@ exports.createTravelHistory = async (req, res) => {
             });
         }
         
+        // Prepare participants array, ensuring creator is always included
+        let participantsList = participants ? [...participants] : [];
+        if (!participantsList.includes(creatorId)) {
+            participantsList.push(creatorId);
+        }
+        
         // Create new travel history object
         const newTravelHistory = new TravelHistory({
             creatorId,
             destination,
             arrivalDate,
             returnDate,
-            participants: participants || [creatorId], // Add creator as participant if none provided
+            participants: participantsList, // Creator is always a participant
             plan: plan || null, // Reference to TravelPlan if provided (null if not provided)
             status: 'planing' // Default status for new trips
         });
@@ -180,6 +186,14 @@ exports.removeParticipant = async (req, res) => {
             });
         }
         
+        // Prevent removing the creator from participants
+        if (travelHistory.creatorId.toString() === participantId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot remove the creator from participants'
+            });
+        }
+        
         travelHistory.participants = travelHistory.participants.filter(p => p.toString() !== participantId);
         const updatedTravelHistory = await travelHistory.save();
         
@@ -202,14 +216,20 @@ exports.getAllUserTravelHistory = async (req, res) => {
     try {
         const userId = req.account.userId;
         
-        const travelHistories = await TravelHistory.find({ creatorId: userId })
-            .sort({ arrivalDate: -1 }) // Sort by arrivalDate in descending order
+        // Find all travel histories where the user is a participant or creator
+        const travelHistories = await TravelHistory.find({ 
+            $or: [
+                { creatorId: userId },
+                { participants: userId }
+            ] 
+        })
+            .sort({ arrivalDate: -1 }) // Sort by arrival date descending
             .populate('participants', 'fullName email avatar')
             .populate('creatorId', 'fullName email avatar')
-            // .populate({
-            //     path: 'plan',
-            //     select: 'plans', // Only select the plans array from TravelPlan
-            // });
+            .populate({
+                path: 'plan',
+                select: 'plans', // Only select the plans array from TravelPlan
+            });
         
         res.status(200).json({
             success: true,
@@ -334,20 +354,149 @@ exports.cancelTravelHistory = async (req, res) => {
     }
 }
 
+exports.changeStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const userId = req.account.userId;
+        
+        // Validate status
+        if (!status || !['active', 'completed', 'cancelled', 'inprogress', 'reported', 'planing'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status value. Status must be one of: active, completed, cancelled, inprogress, reported, planing'
+            });
+        }
+        
+        const travelHistory = await TravelHistory.findById(id);
+        
+        if (!travelHistory) {
+            return res.status(404).json({
+                success: false,
+                message: 'Travel history not found'
+            });
+        }
+        
+        // Only creator can change status
+        if (travelHistory.creatorId.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to change the status of this travel history'
+            });
+        }
+        
+        // Validate status transitions
+        if (travelHistory.status === 'completed' && status !== 'reported') {
+            return res.status(400).json({
+                success: false,
+                message: 'Completed travel histories can only be changed to reported status'
+            });
+        }
+        
+        if (travelHistory.status === 'cancelled' && status !== 'planing') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cancelled travel histories can only be reactivated to planning status'
+            });
+        }
+        
+        // Update the status
+        travelHistory.status = status;
+        const updatedTravelHistory = await travelHistory.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Travel history status updated successfully',
+            data: updatedTravelHistory
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update travel history status',
+            error: error.message
+        });
+    }
+}
+
+exports.updateTravelNotes = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { notes } = req.body;
+        const userId = req.account.userId;
+        
+        const travelHistory = await TravelHistory.findById(id);
+        
+        if (!travelHistory) {
+            return res.status(404).json({
+                success: false,
+                message: 'Travel history not found'
+            });
+        }
+        
+        // Check if user is authorized to update notes
+        // Allow both creator and participants to add notes
+        const isCreator = travelHistory.creatorId.toString() === userId;
+        const isParticipant = travelHistory.participants.some(p => 
+            p.toString() === userId
+        );
+        
+        if (!isCreator && !isParticipant) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to update notes for this travel history'
+            });
+        }
+        
+        // Update notes
+        travelHistory.notes = notes;
+        const updatedTravelHistory = await travelHistory.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Travel notes updated successfully',
+            data: updatedTravelHistory
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update travel notes',
+            error: error.message
+        });
+    }
+}
+
 exports.getAllTravelHistories = async (req, res) => {
     try {
         // Get parameters from query string
         const { 
-            status,    // Trip status (active, completed, cancelled, inprogress, reported, planing)
-            sort,      // Sort option (destination: by location name, date: by arrival date, default: by creation date)
-            page = 1,  // Current page number, defaults to 1
-            limit = 10 // Number of records per page, defaults to 10
+            status,        // Trip status (active, completed, cancelled, inprogress, reported, planing)
+            sort,          // Sort option (destination: by location name, date: by arrival date, default: by creation date)
+            page = 1,      // Current page number, defaults to 1
+            limit = 10,    // Number of records per page, defaults to 10
+            destination,   // Optional filter by destination
+            dateFrom,      // Optional filter for arrival date range start
+            dateTo         // Optional filter for arrival date range end
         } = req.query;
+        
         const query = {}; // Object containing search conditions
         
         // Filter by status if provided
         if (status && ['active', 'completed', 'cancelled', 'inprogress', 'reported', 'planing'].includes(status)) {
             query.status = status; // Add status filter condition
+        }
+        
+        // Filter by destination if provided (case-insensitive partial match)
+        if (destination) {
+            query.destination = { $regex: destination, $options: 'i' };
+        }
+        
+        // Filter by date range if provided
+        if (dateFrom || dateTo) {
+            query.arrivalDate = {};
+            if (dateFrom) query.arrivalDate.$gte = new Date(dateFrom);
+            if (dateTo) query.arrivalDate.$lte = new Date(dateTo);
         }
         
         // Calculate pagination - Calculate number of records to skip for pagination
@@ -360,6 +509,7 @@ exports.getAllTravelHistories = async (req, res) => {
         let sortOptions = { createdAt: -1 }; // Default: sort by creation date (newest first)
         if (sort === 'destination') sortOptions = { destination: 1 }; // Sort by destination name (A-Z)
         if (sort === 'date') sortOptions = { arrivalDate: 1 }; // Sort by arrival date (oldest to newest)
+        if (sort === 'dateDesc') sortOptions = { arrivalDate: -1 }; // Sort by arrival date (newest to oldest)
         
         // Query database with configured parameters
         const travelHistories = await TravelHistory.find(query)

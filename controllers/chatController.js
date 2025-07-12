@@ -323,8 +323,8 @@ exports.leaveChatRoom = async (req, res) => {
 exports.createTravelHistory = async (req, res) => {
     try {
         const creatorId = req.account.userId;
-        const { id } = req.params; // Lấy chatRoomId từ params
-        const { plan, destination, arrivalDate, returnDate } = req.body;
+        const { id } = req.params; // Get chatRoomId from params
+        const { plan, destination, arrivalDate, returnDate, notes } = req.body;
 
         // Find and validate chat room
         const chatRoom = await ChatRoom.findById(id);
@@ -334,22 +334,29 @@ exports.createTravelHistory = async (req, res) => {
             return res.status(400).json({ message: 'Destination, arrivalDate, and returnDate are required' });
         }
 
-        // Lấy participants từ chatRoom nếu có, không thì lấy từ body, không cần ép creator vào nữa vì chatRoom đã chuẩn
+        // Get participants from chatRoom if available
         let allParticipants = chatRoom && Array.isArray(chatRoom.participants)
             ? chatRoom.participants
             : [];
+            
+        // Ensure creator is included in participants
+        if (!allParticipants.includes(creatorId)) {
+            allParticipants.push(creatorId);
+        }
 
         const travelHistory = new TravelHistory({
             creatorId,
-            plan: plan || undefined,
+            plan: plan || null,
             participants: allParticipants,
             destination,
             arrivalDate,
-            returnDate
+            returnDate,
+            status: 'planing', // Set initial status to planning
+            notes: notes // Preserve the original value of notes, even if it is an empty string
         });
         await travelHistory.save();
 
-        // Tạo system message cho chuyến du lịch mới bằng chatUtils.createSystemMessage
+        // Create system message for the new travel history
         const creator = await User.findById(creatorId).select('fullName');
         const systemMessageData = await chatUtils.createSystemMessage(
             id,
@@ -357,7 +364,7 @@ exports.createTravelHistory = async (req, res) => {
             { fullName: creator.fullName, destination }
         );
 
-        // Emit socket events cho tất cả participants giống leaveChatRoom
+        // Emit socket events to all participants
         const io = req.app.get('io');
         
         if (io) {
@@ -374,7 +381,8 @@ exports.createTravelHistory = async (req, res) => {
                     systemMessage: systemMessageData
                 });
             });
-            // Emit event tổng cho tất cả participants (giống chatUtils.emitChatListUpdate của leaveChatRoom)
+            
+            // Emit chat list update to all participants
             chatUtils.emitChatListUpdate(io, allParticipants, {
                 chatRoomId: travelHistory._id,
                 lastMessage: systemMessageData
