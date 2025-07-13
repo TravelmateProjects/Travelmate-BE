@@ -30,4 +30,10 @@ router.delete('/:id/participants', verifyToken, authorizeRole("user"), travelHis
 // Delete/cancel an upcoming trip
 router.delete('/:id', verifyToken, authorizeRole("user"), travelHistoryController.cancelTravelHistory);
 
+// Change travel history status
+router.put('/:id/status', verifyToken, authorizeRole("user"), travelHistoryController.changeStatus);
+
+// Update travel notes
+router.put('/:id/notes', verifyToken, authorizeRole("user"), travelHistoryController.updateTravelNotes);
+
 module.exports = router;
