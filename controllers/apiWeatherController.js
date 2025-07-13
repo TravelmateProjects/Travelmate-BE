@@ -15,11 +15,12 @@ const getCurrentWeather = async (req, res) => {
             return res.status(400).json({ error: 'City is required' });
         }
 
+        const lang = req.query.lang || 'eng';
         const response = await axios.get('http://api.weatherapi.com/v1/current.json', {
             params: {
                 key: API_KEY,
                 q: city,
-                lang: 'eng'
+                lang
             },
         });
 
@@ -63,12 +64,13 @@ const getForecastWeather = async (req, res) => {
             return res.status(400).json({ error: 'City is required' });
         }
 
+        const lang = req.query.lang || 'eng';
         const response = await axios.get('http://api.weatherapi.com/v1/forecast.json', {
             params: {
                 key: API_KEY,
                 q: city,
                 days,
-                lang: 'eng'
+                lang
             },
         });
 
