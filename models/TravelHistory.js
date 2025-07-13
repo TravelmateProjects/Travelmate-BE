@@ -8,6 +8,7 @@ const travelHistorySchema = new mongoose.Schema({
   arrivalDate: { type: Date, required: true }, // Ngày đến
   returnDate: { type: Date, required: true }, // Ngày trở về
   status: { type: String, enum: ['active', 'completed', 'cancelled', 'inprogress', 'reported', 'planing'], default: 'active' },
+  notes: { type: String, default: '' }, // Ghi chú về chuyến du lịch (mặc định là chuỗi rỗng)
 }, { timestamps: true });
 
 module.exports = mongoose.model('TravelHistory', travelHistorySchema); // Cần thì đổi tên
