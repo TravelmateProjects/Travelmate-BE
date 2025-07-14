@@ -140,7 +140,7 @@ exports.login = async (req, res) => {
       const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'none', // 'none' for cross-origin in production
         // Don't set domain for localhost/IP - let browser handle it automatically
         domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined,
       };
@@ -238,7 +238,7 @@ exports.refreshToken = async (req, res) => {
       const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'none', // 'none' for cross-origin in production
         // Don't set domain for localhost/IP - let browser handle it automatically
         domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined,
       };
@@ -340,7 +340,7 @@ exports.logout = (req, res) => {
       const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', // HTTPS in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'none', // 'none' for cross-origin in production
         // Don't set domain for localhost/IP - let browser handle it automatically
         domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined,
       };
