@@ -46,7 +46,7 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
       'http://localhost:5173', // Vite dev server
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
-      'http://3.93.248.130:3000',
+      'http://3.93.239.130:3000',
       'http://3.93.248.130:3001',
       'https://travelmate-fe-web.vercel.app',
       'http://3.93.248.130'
