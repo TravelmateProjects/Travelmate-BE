@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const { verifyToken, verifyRefreshToken } = require('../middlewares/authMiddleware');
+const { verifyToken, verifyRefreshToken, authorizeRole } = require('../middlewares/authMiddleware');
 
 router.post('/register', authController.register);
 router.post('/login', authController.login);
@@ -12,6 +12,7 @@ router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 router.post('/verify-forgot-otp', authController.verifyForgotPasswordOtp);
 router.post('/change-password', verifyToken, authController.changePassword);
+router.post('/create-partner', verifyToken, authorizeRole('admin'), authController.createPartnerAccount);
 
 
 module.exports = router;
