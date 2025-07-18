@@ -28,7 +28,13 @@ const testRoutes = require('./routes/testRoutes');
 const apiWeatherRouters = require('./routes/apiWeatherRouters');
 const travelHistoryRouters = require('./routes/travelHistroyRouters');
 
+// Batch Manager
+const batchManager = require('./batchs/batchManager');
+
 var app = express();
+
+// Store app instance in global for access from batch jobs
+global.app = app;
 
 // CORS - allow frontend access
 const allowedOrigins = process.env.NODE_ENV === 'production' 
@@ -78,8 +84,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '20mb' })); // Set limit for JSON data
 app.use(express.urlencoded({ extended: true, limit: '20mb' })); // Set limit for form data
 
+// Socket.IO will be set in bin/www after server initialization
+// Create a setter to access io from app
+// app.set('setSocketIO', (io) => {
+//   app.set('io', io); // Make io accessible via req.app.get('io')
+// });
+
 // Connect to MongoDB
-connectDB();
+connectDB().then(async () => {
+  console.log('MongoDB connected');
+  try {
+    // Initialize batch jobs after successful database connection
+    await batchManager.init({ enableTravelReminders: true });
+  } catch (err) {
+    console.error('Failed to initialize batch jobs:', err);
+  }
+}).catch(err => {
+  console.error('MongoDB connection error:', err);
+});
 
 // Debug middleware (only in development)
 // if (process.env.NODE_ENV === 'development') {

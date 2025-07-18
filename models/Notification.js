@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // ID of user receiving the notification
   content: { type: String, required: true },
   type: { 
     type: String, 
-    enum: ['chat', 'connection_request', 'travel_match', 'blog_like', 'rating', 'system'], 
+    enum: ['chat', 'connection_request', 'travel_match', 'blog_like', 'rating', 'system', 'travel_reminder'], 
     required: true 
   },
   relatedId: { type: mongoose.Schema.Types.ObjectId }, // ID of related object (chatId, userId, blogId, etc.)
