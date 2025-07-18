@@ -12,5 +12,5 @@ router.get("/:id", verifyToken, userAlbumController.getUserAlbumById);
 router.post("/", verifyToken, userAlbumController.createUserAlbum);
 router.put("/:id", verifyToken, userAlbumController.updateUserAlbum);
 router.delete("/:id", verifyToken, userAlbumController.deleteUserAlbum);
-
+router.get("/user/:userId", verifyToken, userAlbumController.getAlbumsByUserId); // Lấy danh sách album của một người dùng cụ thể
 module.exports = router;
