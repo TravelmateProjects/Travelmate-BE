@@ -1,7 +1,7 @@
 const UserAlbum = require("../models/UserAlbum");
 const AlbumImage = require("../models/AlbumImage");
 const cloudinary = require("cloudinary").v2;
-
+const User = require("../models/User");
 exports.getAllUserAlbums = async (req, res) => {
   try {
     const userId = req.account.userId; // Extract userId from token
@@ -157,6 +157,32 @@ exports.deleteUserAlbum = async (req, res) => {
     });
   } catch (error) {
     console.error("Error deleting user album:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getAlbumsByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    // Kiểm tra xem userId có tồn tại trong cơ sở dữ liệu
+    const userExists = await User.findById(userId);
+    if (!userExists) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const userAlbums = await UserAlbum.find({ userId }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: "Albums fetched successfully",
+      albums: userAlbums || [],
+    });
+  } catch (error) {
+    console.error("Error fetching albums by userId:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
