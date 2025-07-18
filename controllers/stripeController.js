@@ -68,6 +68,12 @@ exports.createCheckoutSession = async (req, res) => {
 exports.verifySession = async (req, res) => {
   const { sessionId } = req.body;
   try {
+    // Kiểm tra transaction đã xác nhận chưa
+    const transaction = await Transaction.findOne({ sessionId });
+    if (transaction && transaction.status === 'paid') {
+      // Đã xác nhận rồi, không cập nhật lại nữa
+      return res.json({ success: true, message: 'Session already verified' });
+    }
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status === 'paid') {
       const accountId = session.metadata.accountId;

@@ -7,34 +7,7 @@ exports.getProStatus = async (req, res) => {
     const account = await Account.findOne({ userId });
     if (!account) return res.status(404).json({ message: 'Account not found' });
 
-    // Kiểm tra transaction thành công gần nhất
-    const paidTransaction = await Transaction.findOne({
-      accountId: account._id,
-      status: 'paid'
-    }).sort({ createdAt: -1 });
-
-    if (paidTransaction) {
-      let expireDate = new Date();
-      if (
-        !account.proInfo ||
-        !account.proInfo.isPro ||
-        !account.proInfo.expireAt ||
-        new Date(account.proInfo.expireAt) < new Date()
-      ) {
-        // Tính ngày hết hạn mới
-        if (paidTransaction.plan === 'month') expireDate.setMonth(expireDate.getMonth() + 1);
-        else if (paidTransaction.plan === 'year') expireDate.setFullYear(expireDate.getFullYear() + 1);
-
-        account.proInfo = {
-          isPro: true,
-          plan: paidTransaction.plan,
-          expireAt: expireDate,
-          activatedAt: new Date() // cập nhật ngày gia hạn/mua mới
-        };
-        await account.save();
-      }
-    }
-
+    // Chỉ trả về trạng thái hiện tại, không tự động add lại proInfo
     res.json({ proInfo: account.proInfo });
   } catch (err) {
     res.status(500).json({ error: err.message });
