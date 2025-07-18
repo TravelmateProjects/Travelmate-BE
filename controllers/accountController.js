@@ -28,7 +28,8 @@ exports.getProStatus = async (req, res) => {
         account.proInfo = {
           isPro: true,
           plan: paidTransaction.plan,
-          expireAt: expireDate
+          expireAt: expireDate,
+          activatedAt: new Date() // cập nhật ngày gia hạn/mua mới
         };
         await account.save();
       }
@@ -50,5 +51,32 @@ exports.getAccountByUserId = async (req, res) => {
     res.json({ data: account });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllAccounts = async (req, res) => {
+  try {
+    const accounts = await Account.find();
+    res.json({ data: accounts });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.getAllProAccounts = async (req, res) => {
+  try {
+    const proAccounts = await Account.find({
+      'proInfo.isPro': true,
+      'proInfo.activatedAt': { $exists: true, $ne: null }
+    }, {
+      'proInfo.activatedAt': 1,
+      'proInfo.plan': 1,
+      'proInfo.expireAt': 1,
+      userId: 1,
+      username: 1
+    });
+    res.json({ data: proAccounts });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
 }; 

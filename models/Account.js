@@ -27,7 +27,8 @@ const accountSchema = new mongoose.Schema({
   proInfo: {
     isPro: { type: Boolean, default: false },
     plan: { type: String, enum: ['month', 'year'], default: null },
-    expireAt: { type: Date }
+    expireAt: { type: Date },
+    activatedAt: { type: Date }
   },
   
 }, { timestamps: true });
