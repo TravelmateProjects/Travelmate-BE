@@ -5,7 +5,7 @@ const notificationSchema = new mongoose.Schema({
   content: { type: String, required: true },
   type: { 
     type: String, 
-    enum: ['chat', 'connection_request', 'travel_match', 'blog_like', 'rating', 'system', 'travel_reminder'], 
+    enum: ['chat', 'connection_request', 'travel_match', 'blog_like', 'rating', 'system', 'travel_reminder', 'vip_reminder'], 
     required: true 
   },
   relatedId: { type: mongoose.Schema.Types.ObjectId }, // ID of related object (chatId, userId, blogId, etc.)
