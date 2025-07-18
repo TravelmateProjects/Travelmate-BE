@@ -17,11 +17,22 @@ class notificationUtils {
    */
   static async createNotification(notificationData, io = null) {
     try {
+      // Check if we're running in batch context
+      const isBatchContext = !!global.socketIO;
+      
+      // If io wasn't passed but we have global.socketIO, use that
+      if (!io && isBatchContext) {
+        io = global.socketIO;
+      }
+      
+      // Create and save notification
       const notification = new Notification(notificationData);
       await notification.save();
       
-      // Populate fromUser information
-      await notification.populate('fromUser', 'fullName avatar');
+      // Populate fromUser information if needed
+      if (notification.fromUser) {
+        await notification.populate('fromUser', 'fullName avatar');
+      }
       
       // Send realtime notification if io is available
       if (io) {
@@ -30,7 +41,8 @@ class notificationUtils {
       
       return notification;
     } catch (error) {
-      console.error('Error creating notification:', error);
+      console.error(`[Notification] Error creating notification: ${error.message}`);
+      // Still throw so calling code can handle it
       throw error;
     }
   }
@@ -42,23 +54,27 @@ class notificationUtils {
    */
   static async sendRealtimeNotification(io, notification) {
     try {
-      if (io && notification.userId) {
-        io.to(`user_${notification.userId}`).emit('newNotification', {
-          id: notification._id,
-          content: notification.content,
-          type: notification.type,
-          priority: notification.priority,
-          fromUser: notification.fromUser,
-          data: notification.data,
-          createdAt: notification.createdAt,
-          isRead: notification.isRead
-        });
-        
-        // Update sent status
-        await Notification.findByIdAndUpdate(notification._id, { notifyStatus: true });
+      if (!io || !notification.userId) {
+        return;
       }
+      
+      const socketRoom = `user_${notification.userId}`;
+      
+      io.to(socketRoom).emit('newNotification', {
+        id: notification._id,
+        content: notification.content,
+        type: notification.type,
+        priority: notification.priority,
+        fromUser: notification.fromUser,
+        data: notification.data,
+        createdAt: notification.createdAt,
+        isRead: notification.isRead
+      });
+      
+      // Update sent status
+      await Notification.findByIdAndUpdate(notification._id, { notifyStatus: true });
     } catch (error) {
-      console.error('Error sending realtime notification:', error);
+      console.error(`[Notification] Error sending realtime notification: ${error.message}`);
     }
   }
 
@@ -168,6 +184,54 @@ class notificationUtils {
       type: 'system',
       priority,
       data
+    }, io);
+  }
+
+  /**
+   * Create travel reminder notification
+   * @param {ObjectId} userId - Recipient ID
+   * @param {number} daysRemaining - Days remaining before trip
+   * @param {string} destination - Destination name
+   * @param {boolean} isCreator - Whether the user is the trip creator
+   * @param {Object} tripData - Trip related data
+   * @param {Object} io - Socket.io instance
+   */
+  static async createTravelReminderNotification(userId, daysRemaining, destination, isCreator = true, tripData = {}, io) {
+    // Content templates for different days (English only)
+    const contentTemplates = {
+      creator: {
+        5: `Reminder: Your trip to ${destination} is in 5 days!`,
+        3: `Reminder: Your trip to ${destination} is in 3 days! Time to start preparing.`,
+        1: `Reminder: Tomorrow is your trip to ${destination}! Make sure you've prepared everything for your journey. We hope you have a great trip!`
+      },
+      participant: {
+        5: `Reminder: You have a trip to ${destination} in 5 days! Please check your travel details and prepare luggage for your trip.`,
+        3: `Reminder: You have a trip to ${destination} in 3 days! Time to start preparing.`,
+        1: `Reminder: Tomorrow is your trip to ${destination}! Make sure you've prepared everything for your journey. We hope you have a great trip!`
+      }
+    };
+
+    // Determine which content set to use
+    const role = isCreator ? 'creator' : 'participant';
+    
+    // Get the appropriate message content
+    const content = contentTemplates[role][daysRemaining];
+    
+    // Set data for the notification
+    const notificationData = {
+      type: 'travel_reminder',
+      priority: 'high',
+      ...tripData,
+      daysRemaining,
+      destination
+    };
+
+    return await this.createNotification({
+      userId,
+      content,
+      type: 'travel_reminder',
+      priority: 'high',
+      data: notificationData
     }, io);
   }
 
