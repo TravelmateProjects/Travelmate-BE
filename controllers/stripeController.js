@@ -74,13 +74,13 @@ exports.verifySession = async (req, res) => {
       const plan = session.metadata.plan || 'month';
       const account = await Account.findById(accountId);
       let now = new Date();
-      let expireDate = now;
+      let expireDate = new Date(now); // Tạo bản sao mới thay vì dùng cùng object
       let daysLeft = 0;
       if (account.proInfo && account.proInfo.isPro && account.proInfo.expireAt && new Date(account.proInfo.expireAt) > now) {
         // Cộng dồn số ngày còn lại
         const oldExpire = new Date(account.proInfo.expireAt);
         daysLeft = Math.ceil((oldExpire - now) / (1000 * 60 * 60 * 24));
-        expireDate = oldExpire;
+        expireDate = new Date(oldExpire); // Tạo bản sao mới
       }
       if (plan === 'month') expireDate.setMonth(expireDate.getMonth() + 1);
       else if (plan === 'year') expireDate.setFullYear(expireDate.getFullYear() + 1);
@@ -89,6 +89,7 @@ exports.verifySession = async (req, res) => {
         'proInfo.isPro': true,
         'proInfo.plan': plan,
         'proInfo.expireAt': expireDate,
+        'proInfo.activatedAt': now,
       });
       // Cập nhật transaction thành paid
       await Transaction.findOneAndUpdate(
@@ -109,5 +110,23 @@ exports.verifySession = async (req, res) => {
     }
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getProRevenueStats = async (req, res) => {
+  try {
+    const transactions = await Transaction.find({
+      status: 'paid',
+      plan: { $in: ['month', 'year'] }
+    }, {
+      accountId: 1,
+      amount: 1,
+      currency: 1,
+      createdAt: 1,
+      plan: 1
+    });
+    res.json({ data: transactions });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
 }; 
