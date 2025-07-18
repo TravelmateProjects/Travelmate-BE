@@ -9,8 +9,13 @@ class BatchManager {
      * Initializes batch jobs and schedulers
      * Call this function after successfully connecting to the DB
      * @param {Object} [options] - Options for schedulers
+     * @param {boolean} [options.enableTravelReminders] - Enable travel reminder job
+     * @param {boolean} [options.enableVipReminders] - Enable VIP account reminder job
      */
-  async init(options = {}) {
+  async init(options = {
+    enableTravelReminders: true,
+    enableVipReminders: true
+  }) {
     console.log('[BatchManager] Initializing batch jobs...');
     try {
       scheduleJobs(options);

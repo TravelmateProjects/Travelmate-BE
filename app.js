@@ -99,7 +99,10 @@ connectDB().then(async () => {
   console.log('MongoDB connected');
   try {
     // Initialize batch jobs after successful database connection
-    await batchManager.init({ enableTravelReminders: true });
+    await batchManager.init({ 
+      enableTravelReminders: true,
+      enableVipReminders: true
+    });
   } catch (err) {
     console.error('Failed to initialize batch jobs:', err);
   }

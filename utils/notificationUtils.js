@@ -272,6 +272,62 @@ class notificationUtils {
   }
 
   /**
+   * Create VIP account renewal reminder notification
+   * @param {ObjectId} userId - Recipient ID
+   * @param {number} daysRemaining - Days remaining before VIP expiration
+   * @param {string} planType - Type of plan ('month' or 'year')
+   * @param {Object} accountData - Account related data
+   * @param {Object} io - Socket.io instance
+   */
+  static async createVipAccountRenewReminderNotification(userId, daysRemaining, planType, accountData = {}, io) {
+    // Format plan type for display
+    const formattedPlanType = planType === 'month' ? 'Monthly' : 'Yearly';
+    
+    // Content templates for different scenarios
+    const contentTemplates = {
+      // For regular reminders before expiration
+      reminder: {
+        3: `Your ${formattedPlanType} VIP subscription will expire in 3 days. Renew now to continue enjoying premium features!`,
+        1: `Your ${formattedPlanType} VIP subscription expires tomorrow! Don't miss out on premium features - renew your subscription today.`
+      },
+      // For expired notifications
+      expired: `Your ${formattedPlanType} VIP subscription has expired. Upgrade now to restore premium features and benefits!`
+    };
+
+    // Determine content based on whether this is an expiration notice or a reminder
+    let content;
+    let notificationType;
+    
+    if (daysRemaining === 0) {
+      // This is an expiration notice
+      content = contentTemplates.expired;
+      notificationType = 'vip_expired';
+    } else {
+      // This is a reminder
+      content = contentTemplates.reminder[daysRemaining];
+      notificationType = 'vip_expiration';
+    }
+    
+    // Set data for the notification
+    const notificationData = {
+      type: notificationType,
+      priority: 'high',
+      ...accountData,
+      daysRemaining,
+      planType,
+      formattedPlanType
+    };
+
+    return await this.createNotification({
+      userId,
+      content,
+      type: 'vip_reminder',
+      priority: 'high',
+      data: notificationData
+    }, io);
+  }
+
+  /**
    * Update status of connection request notification
    * @param {ObjectId} userId - Recipient ID (người nhận lời mời)
    * @param {ObjectId} fromUserId - Sender ID (người gửi lời mời)
