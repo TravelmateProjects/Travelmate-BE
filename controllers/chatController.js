@@ -772,3 +772,14 @@ exports.clearChatAI = async (req, res) => {
         res.status(500).json({ message: 'Error clearing conversation', error: error.message });
     }
 };
+
+// Lấy danh sách phòng chat theo userId
+exports.getUserChatRoomsByUserId = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const chatRooms = await ChatRoom.find({ participants: userId }).populate('participants', 'fullName email avatar');
+        res.status(200).json({ message: 'Get user chatrooms successful', data: chatRooms });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching user chat rooms', error: error.message });
+    }
+};

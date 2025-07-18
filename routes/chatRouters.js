@@ -8,6 +8,7 @@ const upload = multer({ storage });
 
 // router.get('/', chatController.getAllChatRooms); // Lấy danh sách tất cả phòng chat(test)
 router.get('/', verifyToken, authorizeRole('user'), chatController.getChatRooms); // Lấy danh sách phòng chat người dùng
+router.get('/user/:userId/rooms', verifyToken, authorizeRole('user'), chatController.getUserChatRoomsByUserId); // Lấy danh sách phòng chat theo userId
 router.get('/:id', verifyToken, authorizeRole('user'), chatController.getChatRoomById); // Lấy thông tin phòng chat theo ID
 router.post('/', verifyToken, authorizeRole('user'), chatController.createChatRoom); // Tạo phòng chat mới
 router.post('/chatAi', verifyToken, authorizeRole('user'), chatController.handleChatAI); // chat AI

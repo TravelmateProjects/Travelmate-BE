@@ -27,6 +27,10 @@ const connectionRouters = require('./routes/connectionRouters');
 const testRoutes = require('./routes/testRoutes');
 const apiWeatherRouters = require('./routes/apiWeatherRouters');
 const travelHistoryRouters = require('./routes/travelHistroyRouters');
+const stripeRoutes = require('./routes/stripeRoutes');
+const successRoute = require('./routes/success');
+const cancelRoute = require('./routes/cancel');
+const accountRouters = require('./routes/accountRouters');
 
 var app = express();
 
@@ -105,5 +109,9 @@ app.use('/notifications', notificationRouters);
 app.use('/connections', connectionRouters);
 app.use('/weather', apiWeatherRouters);
 app.use('/travelHistory', travelHistoryRouters);
+app.use('/stripe', stripeRoutes);
+app.use('/', successRoute);
+app.use('/', cancelRoute);
+app.use('/', accountRouters);
 
 module.exports = app;
