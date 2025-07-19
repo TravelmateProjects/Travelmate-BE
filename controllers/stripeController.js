@@ -1,6 +1,8 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Transaction = require('../models/Transaction');
 const Account = require('../models/Account');
+const User = require('../models/User'); // Thêm dòng này
+const { sendProSuccessMail } = require('../utils/mailer');
 
 exports.createCheckoutSession = async (req, res) => {
   const { priceId, accountId } = req.body;
@@ -38,7 +40,7 @@ exports.createCheckoutSession = async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: 'http://192.168.48.248:5000/success?session_id={CHECKOUT_SESSION_ID}',
+      success_url: 'http://192.168.1.7:5000/success?session_id={CHECKOUT_SESSION_ID}',
       cancel_url: 'http://192.168.48.248:5000/cancel',
       metadata: {
         accountId,
@@ -79,6 +81,9 @@ exports.verifySession = async (req, res) => {
       const accountId = session.metadata.accountId;
       const plan = session.metadata.plan || 'month';
       const account = await Account.findById(accountId);
+      const user = account && account.userId ? await User.findById(account.userId) : null;
+      const email = (account && account.email) || (user && user.email);
+      const fullName = (user && user.fullName) || (account && account.username);
       let now = new Date();
       let expireDate = new Date(now); // Tạo bản sao mới thay vì dùng cùng object
       let daysLeft = 0;
@@ -97,6 +102,14 @@ exports.verifySession = async (req, res) => {
         'proInfo.expireAt': expireDate,
         'proInfo.activatedAt': now,
       });
+      // Gửi email xác nhận Pro thành công
+      try {
+        if (email) {
+          await sendProSuccessMail(email, fullName, plan, expireDate);
+        }
+      } catch (mailErr) {
+        console.error('Lỗi gửi mail xác nhận Pro:', mailErr);
+      }
       // Cập nhật transaction thành paid
       await Transaction.findOneAndUpdate(
         { sessionId },
