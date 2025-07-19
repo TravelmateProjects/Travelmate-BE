@@ -101,7 +101,8 @@ connectDB().then(async () => {
     // Initialize batch jobs after successful database connection
     await batchManager.init({ 
       enableTravelReminders: true,
-      enableVipReminders: true
+      enableVipReminders: true,
+      enableTravelStatusUpdates: true
     });
   } catch (err) {
     console.error('Failed to initialize batch jobs:', err);
