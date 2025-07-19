@@ -21,5 +21,6 @@ router.delete('/:id', verifyToken, authorizeRole('user'), chatController.deleteC
 router.delete('/:id/message/:messageId', verifyToken, authorizeRole('user'), chatController.deleteMessage); // Xóa tin nhắn theo ID
 router.post('/:id/add-participant', verifyToken, authorizeRole('user'), chatController.addParticipant); // Thêm người vào chatroom
 router.post('/:id/remove-participant', verifyToken, authorizeRole('user'), chatController.removeParticipant); // Kick người khỏi chatroom
+router.put('/:id/edit-name', verifyToken, authorizeRole('user'), chatController.editChatRoomName); // Đổi tên phòng chat
 
 module.exports = router;

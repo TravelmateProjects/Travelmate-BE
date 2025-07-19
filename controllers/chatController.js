@@ -512,6 +512,39 @@ exports.removeParticipant = async (req, res) => {
     }
 };
 
+exports.editChatRoomName = async (req, res) => {
+    try {
+        const { id } = req.params; // chatRoomId
+        const { newName } = req.body;
+        const userId = req.account.userId;
+
+        if (!newName || typeof newName !== 'string' || !newName.trim()) {
+            return res.status(400).json({ message: 'New name is required' });
+        }
+
+        const chatRoom = await ChatRoom.findById(id);
+        if (!chatRoom) {
+            return res.status(404).json({ message: 'Chat room not found' });
+        }
+        if (chatRoom.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Only the chat room creator can edit the name' });
+        }
+
+        chatRoom.name = newName.trim();
+        await chatRoom.save();
+
+        // Emit socket event nếu cần
+        // const io = req.app.get('io');
+        // if (io) {
+        //     io.to(id).emit('chatRoomNameChanged', { chatRoomId: id, newName: chatRoom.name });
+        // }
+
+        res.status(200).json({ message: 'Chat room name updated successfully', data: chatRoom });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating chat room name', error: error.message });
+    }
+};
+
 // Store conversation history in memory (will reset when server restarts)
 const conversationHistory = new Map();
 
