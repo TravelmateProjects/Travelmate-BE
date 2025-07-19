@@ -351,6 +351,100 @@ class notificationUtils {
       throw error;
     }
   }
+
+  /**
+   * Create travel planning reminder notification
+   * @param {ObjectId} userId - User ID to send notification to
+   * @param {number} daysUntilArrival - Days until arrival date
+   * @param {Object} tripData - Trip data
+   * @param {boolean} isCreator - Whether the user is the creator of the trip
+   * @param {Object} io - Socket.IO instance
+   */
+  static async createTravelPlanningReminderNotification(userId, daysUntilArrival, tripData, isCreator = true, io) {
+    const message = isCreator 
+      ? `Please update your travel plan to ${tripData.destination} that starts in ${daysUntilArrival} days`
+      : `A trip to ${tripData.destination} you're part of needs to be updated. It starts in ${daysUntilArrival} days`;
+      
+    return this.createNotification({
+      userId,
+      content: message,
+      type: 'travel_status_reminder',
+      priority: 'medium',
+      data: {
+        travelHistoryId: tripData._id,
+        destination: tripData.destination,
+        arrivalDate: tripData.arrivalDate,
+        daysUntilArrival,
+        ...(isCreator ? {} : { creatorId: tripData.creatorId._id, creatorName: tripData.creatorId.fullName })
+      }
+    }, io);
+  }
+
+  /**
+   * Create auto cancellation notification for travel plans
+   * @param {ObjectId} userId - User ID to send notification to
+   * @param {Object} tripData - Trip data
+   * @param {boolean} isCreator - Whether the user is the creator of the trip
+   * @param {Object} io - Socket.IO instance
+   */
+  static async createTravelAutoCancelNotification(userId, tripData, isCreator = true, io) {
+    const message = isCreator
+      ? `Your trip to ${tripData.destination} has been automatically cancelled as it was not activated in time`
+      : `A trip to ${tripData.destination} you were part of has been automatically cancelled`;
+    
+    return this.createNotification({
+      userId,
+      content: message,
+      type: 'travel_auto_cancelled',
+      priority: 'medium',
+      data: {
+        travelHistoryId: tripData._id,
+        destination: tripData.destination,
+        arrivalDate: tripData.arrivalDate,
+        ...(isCreator ? {} : { creatorId: tripData.creatorId._id, creatorName: tripData.creatorId.fullName })
+      }
+    }, io);
+  }
+
+  /**
+   * Create trip started notification
+   * @param {ObjectId} userId - User ID to send notification to
+   * @param {Object} tripData - Trip data
+   * @param {Object} io - Socket.IO instance
+   */
+  static async createTripStartedNotification(userId, tripData, io) {
+    return this.createNotification({
+      userId,
+      content: `Your trip to ${tripData.destination} has started! Have a great journey!`,
+      type: 'travel_started',
+      priority: 'high',
+      data: {
+        travelHistoryId: tripData._id,
+        destination: tripData.destination,
+        arrivalDate: tripData.arrivalDate
+      }
+    }, io);
+  }
+
+  /**
+   * Create trip completed notification
+   * @param {ObjectId} userId - User ID to send notification to
+   * @param {Object} tripData - Trip data
+   * @param {Object} io - Socket.IO instance
+   */
+  static async createTripCompletedNotification(userId, tripData, io) {
+    return this.createNotification({
+      userId,
+      content: `Your trip to ${tripData.destination} has been marked as completed. We hope you had a great time!`,
+      type: 'travel_completed',
+      priority: 'medium',
+      data: {
+        travelHistoryId: tripData._id,
+        destination: tripData.destination,
+        returnDate: tripData.returnDate
+      }
+    }, io);
+  }
 }
 
 module.exports = notificationUtils;
