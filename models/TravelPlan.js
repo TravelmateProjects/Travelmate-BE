@@ -1,10 +1,12 @@
 const mongoose = require('mongoose');
 
 const TravelPlanSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    // destination: { type: String, required: true },
-    // arrivalDate: { type: Date, required: true },
-    // returnDate: { type: Date, required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, 
+    shareWith: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], 
+    title: { type: String },
+    destination: { type: String, required: true },
+    arrivalDate: { type: Date, required: true },
+    returnDate: { type: Date, required: true },
     plans: [
         {
             activityName: { type: String, required: true },

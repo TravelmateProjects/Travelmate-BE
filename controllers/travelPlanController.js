@@ -3,8 +3,13 @@ const TravelHistory = require("../models/TravelHistory");
 
 exports.createTravelPlan = async (req, res) => {
     try {
-        const userId = req.account.userId; 
-        const { plans, destination, arrivalDate, returnDate } = req.body;
+        const userId = req.account.userId;
+        const { title, destination, arrivalDate, returnDate, plans, shareWith } = req.body;
+
+        // Kiểm tra các trường bắt buộc
+        if (!destination || !arrivalDate || !returnDate || !plans || !Array.isArray(plans)) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
 
         // Check if returnDate is greater than or equal to arrivalDate
         if (new Date(returnDate) < new Date(arrivalDate)) {
@@ -18,21 +23,19 @@ exports.createTravelPlan = async (req, res) => {
             }
         }
 
-        // Create a new TravelPlan
-        const travelPlan = new TravelPlan({ userId, plans });
-        await travelPlan.save();
-
-        // Create a corresponding TravelHistory using the TravelPlan ID
-        const travelHistory = new TravelHistory({
-            plan: travelPlan._id,
+        // Tạo mới TravelPlan với đầy đủ trường
+        const travelPlan = new TravelPlan({
+            userId,
+            title,
             destination,
             arrivalDate,
             returnDate,
-            participants: [userId] // Assuming the creator is the first participant
+            plans,
+            shareWith: shareWith || []
         });
-        await travelHistory.save();
+        await travelPlan.save();
 
-        res.status(201).json({ message: 'Travel plan and history created successfully', data: travelHistory, travelPlan });
+        res.status(201).json({ message: 'Travel plan created successfully', data: travelPlan });
     } catch (error) {
         res.status(500).json({ message: `Failed to create travel plan: ${error.message}` });
     }
@@ -40,103 +43,134 @@ exports.createTravelPlan = async (req, res) => {
 
 exports.getAllTravelPlans = async (req, res) => {
     try {
-        const travelPlans = await TravelPlan.find().populate('userId');
-        const travelHistories = await TravelHistory.find().populate('plan');
-        res.status(200).json({ message: 'All travel plans and histories retrieved successfully', data: { travelPlans, travelHistories } });
-    } catch (error) {
-        res.status(500).json({ message: `Failed to retrieve travel plans: ${error.message}` });
+        const plans = await TravelPlan.find()
+            .populate('userId', 'fullName email avatar')
+            .populate('shareWith', 'fullName email avatar');
+        res.json({ success: true, data: plans });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Failed to get travel plans', error: err.message });
     }
 };
 
 exports.getTravelPlanById = async (req, res) => {
     try {
-        const { id } = req.params;
-        const travelPlan = await TravelPlan.findById(id).populate('userId');
-        if (!travelPlan) {
-            return res.status(404).json({ message: 'Travel plan not found' });
-        }
-
-        const travelHistory = await TravelHistory.findOne({ plan: id }).populate('plan');
-        res.status(200).json({ message: 'Travel plan and history retrieved successfully', data: { travelPlan, travelHistory } });
-    } catch (error) {
-        res.status(500).json({ message: `Failed to retrieve travel plan: ${error.message}` });
+        const plan = await TravelPlan.findById(req.params.id)
+            .populate('userId', 'fullName email avatar')
+            .populate('shareWith', 'fullName email avatar');
+        if (!plan) return res.status(404).json({ success: false, message: 'Travel plan not found' });
+        res.json({ success: true, data: plan });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Failed to get travel plan', error: err.message });
     }
 };
 
 exports.getTravelPlansByUserId = async (req, res) => {
     try {
-        const { userId } = req.params;
-        const travelPlans = await TravelPlan.find({ userId }).populate('userId');
-        const travelHistories = await TravelHistory.find({ participants: userId }).populate('plan');
-        res.status(200).json({ message: 'Travel plans and histories retrieved successfully', data: { travelPlans, travelHistories } });
-    } catch (error) {
-        res.status(500).json({ message: `Failed to retrieve travel plans: ${error.message}` });
+        const plans = await TravelPlan.find({ userId: req.params.userId })
+            .populate('userId', 'fullName email avatar')
+            .populate('shareWith', 'fullName email avatar');
+        res.json({ success: true, data: plans });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Failed to get user travel plans', error: err.message });
     }
 };
 
 exports.updateTravelPlan = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.account.userId; // Get the user ID from the request
-        const updates = req.body;
+        const { title, destination, arrivalDate, returnDate, plans, shareWith } = req.body;
+        const plan = await TravelPlan.findById(id);
+        if (!plan) return res.status(404).json({ success: false, message: 'Travel plan not found' });
 
-        // Find the travel plan to check ownership
-        const travelPlan = await TravelPlan.findById(id);
-        if (!travelPlan) {
-            return res.status(404).json({ message: 'Travel plan not found' });
+        // Only owner can update
+        if (plan.userId.toString() !== req.account.userId) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
         }
 
-        // Check if the user is the creator of the travel plan
-        if (travelPlan.userId.toString() !== userId) {
-            return res.status(403).json({ message: 'You are not authorized to update this travel plan' });
-        }
+        if (title !== undefined) plan.title = title;
+        if (destination !== undefined) plan.destination = destination;
+        if (arrivalDate !== undefined) plan.arrivalDate = arrivalDate;
+        if (returnDate !== undefined) plan.returnDate = returnDate;
+        if (plans !== undefined) plan.plans = plans;
+        if (shareWith !== undefined) plan.shareWith = shareWith;
 
-        // Update the travel plan
-        const updatedTravelPlan = await TravelPlan.findByIdAndUpdate(id, updates, { new: true });
-
-        // Update corresponding TravelHistory if necessary
-        if (updates.destination || updates.arrivalDate || updates.returnDate) {
-            await TravelHistory.findOneAndUpdate(
-                { plan: id },
-                {
-                    destination: updates.destination,
-                    arrivalDate: updates.arrivalDate,
-                    returnDate: updates.returnDate
-                },
-                { new: true }
-            );
-        }
-
-        res.status(200).json({ message: 'Travel plan updated successfully', data: updatedTravelPlan });
-    } catch (error) {
-        res.status(500).json({ message: `Failed to update travel plan: ${error.message}` });
+        const updatedPlan = await plan.save();
+        res.json({ success: true, message: 'Travel plan updated', data: updatedPlan });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Failed to update travel plan', error: err.message });
     }
 };
 
 exports.deleteTravelPlan = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.account.userId; // Get the user ID from the request
+        const plan = await TravelPlan.findById(id);
+        if (!plan) return res.status(404).json({ success: false, message: 'Travel plan not found' });
 
-        // Find the travel plan to check ownership
-        const travelPlan = await TravelPlan.findById(id);
-        if (!travelPlan) {
-            return res.status(404).json({ message: 'Travel plan not found' });
+        // Only owner can delete
+        if (plan.userId.toString() !== req.account.userId) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
         }
 
-        // Check if the user is the creator of the travel plan
-        if (travelPlan.userId.toString() !== userId) {
-            return res.status(403).json({ message: 'You are not authorized to delete this travel plan' });
-        }
-
-        // Delete the travel plan
         await TravelPlan.findByIdAndDelete(id);
+        res.json({ success: true, message: 'Travel plan deleted' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Failed to delete travel plan', error: err.message });
+    }
+};
 
-        // Delete corresponding TravelHistory
-        await TravelHistory.deleteMany({ plan: id });
+// Chia sẻ kế hoạch cho người khác
+exports.shareTravelPlan = async (req, res) => {
+    try {
+        const { id } = req.params; // id của TravelPlan
+        const { userIds } = req.body; // mảng userId muốn share
 
-        res.status(200).json({ message: 'Travel plan and history deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: `Failed to delete travel plan: ${error.message}` });
+        const plan = await TravelPlan.findById(id);
+        if (!plan) return res.status(404).json({ success: false, message: 'Travel plan not found' });
+
+        // Chỉ chủ sở hữu mới được chia sẻ
+        if (plan.userId.toString() !== req.account.userId) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        // Thêm userIds vào shareWith (không trùng lặp)
+        plan.shareWith = Array.from(new Set([...plan.shareWith.map(id => id.toString()), ...userIds]));
+        await plan.save();
+
+        res.json({ success: true, message: 'Travel plan shared successfully', data: plan });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Failed to share travel plan', error: err.message });
+    }
+};
+
+// Lấy các kế hoạch được chia sẻ với user hiện tại
+exports.getSharedTravelPlans = async (req, res) => {
+    try {
+        console.log('getSharedTravelPlans called');
+        console.log('req.account:', req.account);
+        
+        if (!req.account || !req.account.userId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'User ID not found in token' 
+            });
+        }
+        
+        const userId = req.account.userId;
+        console.log('Looking for plans shared with userId:', userId);
+        
+        const plans = await TravelPlan.find({ shareWith: userId })
+            .populate('userId', 'fullName email avatar')
+            .populate('shareWith', 'fullName email avatar');
+            
+        console.log('Found plans:', plans.length);
+        res.json({ success: true, data: plans });
+    } catch (err) {
+        console.error('Error in getSharedTravelPlans:', err);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to get shared travel plans', 
+            error: err.message 
+        });
     }
 };

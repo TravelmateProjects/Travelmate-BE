@@ -9,6 +9,8 @@ router.get('/user/:userId', verifyToken, authorizeRole('user'), verifyToken, tra
 router.post('/', verifyToken, authorizeRole('user'), travelPlanController.createTravelPlan);
 router.put('/:id', verifyToken, authorizeRole('user'), travelPlanController.updateTravelPlan);
 router.delete('/:id', verifyToken, authorizeRole('user'), travelPlanController.deleteTravelPlan);
+router.post('/:id/share', verifyToken, authorizeRole('user'), travelPlanController.shareTravelPlan);
+router.get('/shared/me', verifyToken, authorizeRole('user'), travelPlanController.getSharedTravelPlans);
 
 
 module.exports = router;

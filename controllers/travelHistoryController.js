@@ -51,7 +51,7 @@ exports.createTravelHistory = async (req, res) => {
 exports.updateTravelHistory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { destination, arrivalDate, returnDate, status } = req.body;
+        const { destination, arrivalDate, returnDate, status, plan } = req.body; // thêm plan
         const userId = req.account.userId;
         
         const travelHistory = await TravelHistory.findById(id);
@@ -78,6 +78,7 @@ exports.updateTravelHistory = async (req, res) => {
         if (status && ['active', 'completed', 'cancelled', 'inprogress', 'reported', 'planing'].includes(status)) {
             travelHistory.status = status;
         }
+        if (plan) travelHistory.plan = plan; // thêm dòng này
         
         const updatedTravelHistory = await travelHistory.save();
         
