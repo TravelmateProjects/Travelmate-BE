@@ -512,6 +512,53 @@ exports.removeParticipant = async (req, res) => {
     }
 };
 
+exports.editChatRoomName = async (req, res) => {
+    try {
+        const { id } = req.params; // chatRoomId
+        const { newName } = req.body;
+        const userId = req.account.userId;
+
+        if (!newName || typeof newName !== 'string' || !newName.trim()) {
+            return res.status(400).json({ message: 'New name is required' });
+        }
+
+        const chatRoom = await ChatRoom.findById(id);
+        if (!chatRoom) {
+            return res.status(404).json({ message: 'Chat room not found' });
+        }
+        if (chatRoom.createdBy.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'Only the chat room creator can edit the name' });
+        }
+
+        chatRoom.name = newName.trim();
+        await chatRoom.save();
+
+        // Tạo system message thông báo đổi tên phòng
+        const user = await User.findById(userId).select('fullName');
+        const systemMessageData = await chatUtils.createSystemMessage(
+            id,
+            'chatRoomNameChanged',
+            { fullName: user.fullName, newName: chatRoom.name }
+        );
+
+        // Emit socket event giống createTravelHistory
+        const io = req.app.get('io');
+        if (io) {
+            io.to(id).emit('newMessage', systemMessageData);
+            // Lấy lại participants mới nhất
+            const updatedRoom = await ChatRoom.findById(id);
+            chatUtils.emitChatListUpdate(io, updatedRoom.participants, {
+                chatRoomId: id,
+                lastMessage: systemMessageData
+            });
+        }
+
+        res.status(200).json({ message: 'Chat room name updated successfully', data: chatRoom });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating chat room name', error: error.message });
+    }
+};
+
 // Store conversation history in memory (will reset when server restarts)
 const conversationHistory = new Map();
 
