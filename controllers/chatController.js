@@ -533,11 +533,25 @@ exports.editChatRoomName = async (req, res) => {
         chatRoom.name = newName.trim();
         await chatRoom.save();
 
-        // Emit socket event nếu cần
-        // const io = req.app.get('io');
-        // if (io) {
-        //     io.to(id).emit('chatRoomNameChanged', { chatRoomId: id, newName: chatRoom.name });
-        // }
+        // Tạo system message thông báo đổi tên phòng
+        const user = await User.findById(userId).select('fullName');
+        const systemMessageData = await chatUtils.createSystemMessage(
+            id,
+            'chatRoomNameChanged',
+            { fullName: user.fullName, newName: chatRoom.name }
+        );
+
+        // Emit socket event giống createTravelHistory
+        const io = req.app.get('io');
+        if (io) {
+            io.to(id).emit('newMessage', systemMessageData);
+            // Lấy lại participants mới nhất
+            const updatedRoom = await ChatRoom.findById(id);
+            chatUtils.emitChatListUpdate(io, updatedRoom.participants, {
+                chatRoomId: id,
+                lastMessage: systemMessageData
+            });
+        }
 
         res.status(200).json({ message: 'Chat room name updated successfully', data: chatRoom });
     } catch (error) {
