@@ -445,6 +445,52 @@ class notificationUtils {
       }
     }, io);
   }
+
+  /**
+   * Create rating reminder notification
+   * @param {ObjectId} userId - User ID to send notification to
+   * @param {Object} tripData - Trip data including destination, dates and participants
+   * @param {string} tripData.destination - Travel destination
+   * @param {Date} tripData.arrivalDate - Date when the trip started
+   * @param {Date} tripData.returnDate - Date when the trip ended
+   * @param {number} daysSinceReturn - Days since the trip return date
+   * @param {boolean} isCreator - Whether the user is the creator of the trip
+   * @param {Array} peopleToRate - List of people the user should rate
+   * @param {Object} io - Socket.IO instance
+   */
+  static async createRatingReminderNotification(userId, tripData, daysSinceReturn, isCreator = false, peopleToRate = [], io) {
+    // Format dates to DD/MM format
+    const formatDate = (date) => {
+      const d = new Date(date);
+      const day = d.getDate().toString().padStart(2, '0');
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      return `${day}/${month}`;
+    };
+    
+    const arrivalDateFormatted = formatDate(tripData.arrivalDate);
+    const returnDateFormatted = formatDate(tripData.returnDate);
+    
+    // Create different messages based on whether user is creator or participant
+    let content = isCreator
+      ? `Don't forget to rate your travel companions from your trip to ${tripData.destination} from ${arrivalDateFormatted} to ${returnDateFormatted}!`
+      : `Please take a moment to rate your experience with your travel companions to ${tripData.destination} from ${arrivalDateFormatted} to ${returnDateFormatted}!`;
+
+    return this.createNotification({
+      userId,
+      content,
+      type: 'travel_rating_reminder',
+      priority: 'medium',
+      data: {
+        travelHistoryId: tripData._id,
+        destination: tripData.destination,
+        arrivalDate: tripData.arrivalDate,
+        returnDate: tripData.returnDate,
+        daysSinceReturn,
+        isCreator,
+        peopleToRate
+      }
+    }, io);
+  }
 }
 
 module.exports = notificationUtils;

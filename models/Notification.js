@@ -17,7 +17,8 @@ const notificationSchema = new mongoose.Schema({
       'travel_status_reminder',
       'travel_auto_cancelled',
       'travel_started',
-      'travel_completed'
+      'travel_completed',
+      'travel_rating_reminder'
     ], 
     required: true 
   },
