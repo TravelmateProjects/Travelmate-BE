@@ -1,52 +1,120 @@
 const TravelHistory = require('../models/TravelHistory');
 const User = require('../models/User');
+const { uploadFilesToCloudinary } = require('../utils/cloudinaryUtils');
+const cloudinary = require('../configs/cloudinary');
 
-exports.createTravelHistory = async (req, res) => {
-    try {
-        const { destination, arrivalDate, returnDate, participants, plan } = req.body;
-        const creatorId = req.account.userId;
+// exports.createTravelHistory = async (req, res) => {
+//     try {
+//         const { destination, arrivalDate, returnDate, participants, plan, initialNote } = req.body;
+//         const creatorId = req.account.userId;
         
-        // Validate required fields
-        if (!destination || !arrivalDate || !returnDate) {
-            return res.status(400).json({
-                success: false,
-                message: 'Destination, arrival date, and return date are required'
-            });
-        }
+//         // Validate required fields
+//         if (!destination || !arrivalDate || !returnDate) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Destination, arrival date, and return date are required'
+//             });
+//         }
         
-        // Prepare participants array, ensuring creator is always included
-        let participantsList = participants ? [...participants] : [];
-        if (!participantsList.includes(creatorId)) {
-            participantsList.push(creatorId);
-        }
+//         // Prepare participants array, ensuring creator is always included
+//         let participantsList = participants ? [...participants] : [];
+//         if (!participantsList.includes(creatorId)) {
+//             participantsList.push(creatorId);
+//         }
         
-        // Create new travel history object
-        const newTravelHistory = new TravelHistory({
-            creatorId,
-            destination,
-            arrivalDate,
-            returnDate,
-            participants: participantsList, // Creator is always a participant
-            plan: plan || null, // Reference to TravelPlan if provided (null if not provided)
-            status: 'planing' // Default status for new trips
-        });
+//         // Create new travel history object
+//         const newTravelHistory = new TravelHistory({
+//             creatorId,
+//             destination,
+//             arrivalDate,
+//             returnDate,
+//             participants: participantsList, // Creator is always a participant
+//             plan: plan || null, // Reference to TravelPlan if provided (null if not provided)
+//             status: 'planing', // Default status for new trips
+//             notes: [], // Initialize with empty notes array
+//             expenses: [] // Initialize with empty expenses array
+//         });
         
-        const savedTravelHistory = await newTravelHistory.save();
+//         // Add initial note if provided
+//         if (initialNote && initialNote.trim() !== '') {
+//             newTravelHistory.notes.push({
+//                 text: initialNote,
+//                 images: [],
+//                 createdAt: new Date()
+//             });
+//         }
         
-        res.status(201).json({
-            success: true,
-            message: 'Travel history created successfully',
-            data: savedTravelHistory
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to create travel history',
-            error: error.message
-        });
-    }
-}
+//         // Handle image uploads if any
+//         if (req.files && req.files.images) {
+//             try {
+//                 // Validate number of images (max 10)
+//                 if (req.files.images.length > 10) {
+//                     return res.status(400).json({
+//                         success: false,
+//                         message: 'Maximum of 10 images allowed per note'
+//                     });
+//                 }
+                
+//                 // Save travel history first to get an ID
+//                 const savedTravelHistory = await newTravelHistory.save();
+                
+//                 // Upload images to Cloudinary
+//                 const uploadedImages = await uploadFilesToCloudinary(
+//                     req.files.images,
+//                     `travelmate/travel-history/${savedTravelHistory._id}/notes`,
+//                     'image'
+//                 );
+                
+//                 // Add uploaded images to the first note if it exists, or create a new note
+//                 if (savedTravelHistory.notes.length > 0) {
+//                     savedTravelHistory.notes[0].images = uploadedImages;
+//                 } else {
+//                     savedTravelHistory.notes.push({
+//                         text: '',
+//                         images: uploadedImages,
+//                         createdAt: new Date()
+//                     });
+//                 }
+                
+//                 // Save the updated travel history
+//                 const updatedTravelHistory = await savedTravelHistory.save();
+                
+//                 return res.status(201).json({
+//                     success: true,
+//                     message: 'Travel history created successfully with images',
+//                     data: updatedTravelHistory
+//                 });
+//             } catch (error) {
+//                 console.error('Error during image upload:', error);
+//                 // If there's an error with image upload, still try to save the basic travel history
+//                 const savedTravelHistory = await newTravelHistory.save();
+                
+//                 return res.status(201).json({
+//                     success: true,
+//                     message: 'Travel history created successfully, but image upload failed',
+//                     data: savedTravelHistory,
+//                     warning: 'Failed to upload images: ' + error.message
+//                 });
+//             }
+//         } else {
+//             // Save travel history without images
+//             const savedTravelHistory = await newTravelHistory.save();
+            
+//             return res.status(201).json({
+//                 success: true,
+//                 message: 'Travel history created successfully',
+//                 data: savedTravelHistory
+//             });
+//         }
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Failed to create travel history',
+//             error: error.message
+//         });
+//     }
+// }
 
 exports.updateTravelHistory = async (req, res) => {
     try {
@@ -420,10 +488,144 @@ exports.changeStatus = async (req, res) => {
     }
 }
 
-exports.updateTravelNotes = async (req, res) => {
+// exports.updateTravelNotes = async (req, res) => {
+//     try {
+//         const { id } = req.params;
+//         const { notes } = req.body;
+//         const userId = req.account.userId;
+        
+//         const travelHistory = await TravelHistory.findById(id);
+        
+//         if (!travelHistory) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Travel history not found'
+//             });
+//         }
+        
+//         // Check if user is authorized to update notes
+//         // Allow both creator and participants to add notes
+//         const isCreator = travelHistory.creatorId.toString() === userId;
+//         const isParticipant = travelHistory.participants.some(p => 
+//             p.toString() === userId
+//         );
+        
+//         if (!isCreator && !isParticipant) {
+//             return res.status(403).json({
+//                 success: false,
+//                 message: 'You are not authorized to update notes for this travel history'
+//             });
+//         }
+        
+//         // Update notes
+//         travelHistory.notes = notes;
+//         const updatedTravelHistory = await travelHistory.save();
+        
+//         res.status(200).json({
+//             success: true,
+//             message: 'Travel notes updated successfully',
+//             data: updatedTravelHistory
+//         });
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Failed to update travel notes',
+//             error: error.message
+//         });
+//     }
+// }
+
+exports.addTravelNote = async (req, res) => {
     try {
         const { id } = req.params;
-        const { notes } = req.body;
+        const { text } = req.body;
+        const userId = req.account.userId;
+        
+        const travelHistory = await TravelHistory.findById(id);
+        
+        if (!travelHistory) {
+            return res.status(404).json({
+                success: false,
+                message: 'Travel history not found'
+            });
+        }
+        
+        // Check if user is authorized to add notes
+        // Allow both creator and participants to add notes
+        const isCreator = travelHistory.creatorId.toString() === userId;
+        const isParticipant = travelHistory.participants.some(p => 
+            p.toString() === userId
+        );
+        
+        if (!isCreator && !isParticipant) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to add notes to this travel history'
+            });
+        }
+        
+        // Create a new note
+        const newNote = {
+            text: text || '',
+            images: [],
+            createdAt: new Date()
+        };
+        
+        // Handle image uploads if any
+        if (req.files && req.files.images) {
+            // Validate number of images (max 10)
+            if (req.files.images.length > 10) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Maximum of 10 images allowed per note'
+                });
+            }
+            
+            try {
+                const uploadedImages = await uploadFilesToCloudinary(
+                    req.files.images,
+                    `travelmate/travel-history/${id}/notes`,
+                    'image'
+                );
+                
+                newNote.images = uploadedImages;
+            } catch (uploadError) {
+                console.error('Error uploading images:', uploadError);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to upload images',
+                    error: uploadError.message
+                });
+            }
+        }
+        
+        // Add note to travel history
+        travelHistory.notes.push(newNote);
+        const updatedTravelHistory = await travelHistory.save();
+        
+        // Return the newly added note
+        const addedNote = updatedTravelHistory.notes[updatedTravelHistory.notes.length - 1];
+        
+        res.status(201).json({
+            success: true,
+            message: 'Note added successfully',
+            data: addedNote
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to add note',
+            error: error.message
+        });
+    }
+}
+
+exports.updateTravelNote = async (req, res) => {
+    try {
+        const { id, noteId } = req.params;
+        const { text, existingImagePublicIds } = req.body;
         const userId = req.account.userId;
         
         const travelHistory = await TravelHistory.findById(id);
@@ -436,7 +638,6 @@ exports.updateTravelNotes = async (req, res) => {
         }
         
         // Check if user is authorized to update notes
-        // Allow both creator and participants to add notes
         const isCreator = travelHistory.creatorId.toString() === userId;
         const isParticipant = travelHistory.participants.some(p => 
             p.toString() === userId
@@ -449,20 +650,360 @@ exports.updateTravelNotes = async (req, res) => {
             });
         }
         
-        // Update notes
-        travelHistory.notes = notes;
+        // Find the note to update
+        const noteIndex = travelHistory.notes.findIndex(note => note._id.toString() === noteId);
+        
+        if (noteIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Note not found'
+            });
+        }
+        
+        // Keep track of the note being updated
+        const note = travelHistory.notes[noteIndex];
+        
+        // Update text if provided
+        if (text !== undefined) {
+            note.text = text;
+        }
+        
+        // Handle image updates
+        const keepImagePublicIds = existingImagePublicIds ? JSON.parse(existingImagePublicIds) : [];
+        
+        // If there are existing images, determine which ones to keep
+        if (note.images && note.images.length > 0) {
+            const imagesToKeep = note.images.filter(image => 
+                keepImagePublicIds.includes(image.publicId)
+            );
+            
+            // Delete images from Cloudinary that are not being kept
+            const imagesToDelete = note.images.filter(
+                image => !keepImagePublicIds.includes(image.publicId)
+            );
+            
+            for (const image of imagesToDelete) {
+                try {
+                    await cloudinary.uploader.destroy(image.publicId);
+                } catch (deleteError) {
+                    console.error(`Failed to delete image ${image.publicId}:`, deleteError);
+                    // Continue with the update even if image deletion fails
+                }
+            }
+            
+            // Update note with kept images
+            note.images = imagesToKeep;
+        }
+        
+        // Handle new image uploads if any
+        if (req.files && req.files.images) {
+            // Calculate how many more images can be added
+            const currentImageCount = note.images.length;
+            const remainingSlots = 10 - currentImageCount;
+            
+            if (req.files.images.length > remainingSlots) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Cannot add more than ${remainingSlots} additional images (maximum total: 10)`
+                });
+            }
+            
+            try {
+                const uploadedImages = await uploadFilesToCloudinary(
+                    req.files.images,
+                    `travelmate/travel-history/${id}/notes`,
+                    'image'
+                );
+                
+                // Add new images to existing ones
+                note.images = [...note.images, ...uploadedImages];
+            } catch (uploadError) {
+                console.error('Error uploading new images:', uploadError);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to upload new images',
+                    error: uploadError.message
+                });
+            }
+        }
+        
+        // Update the note in the travel history
+        travelHistory.notes[noteIndex] = note;
+        
+        // Save the updated travel history
         const updatedTravelHistory = await travelHistory.save();
         
         res.status(200).json({
             success: true,
-            message: 'Travel notes updated successfully',
+            message: 'Note updated successfully',
+            data: updatedTravelHistory.notes[noteIndex]
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update note',
+            error: error.message
+        });
+    }
+}
+
+exports.deleteTravelNote = async (req, res) => {
+    try {
+        const { id, noteId } = req.params;
+        const userId = req.account.userId;
+        
+        const travelHistory = await TravelHistory.findById(id);
+        
+        if (!travelHistory) {
+            return res.status(404).json({
+                success: false,
+                message: 'Travel history not found'
+            });
+        }
+        
+        // Check if user is authorized to delete notes
+        const isCreator = travelHistory.creatorId.toString() === userId;
+        const isParticipant = travelHistory.participants.some(p => 
+            p.toString() === userId
+        );
+        
+        if (!isCreator && !isParticipant) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to delete notes for this travel history'
+            });
+        }
+        
+        // Find the note to delete
+        const noteIndex = travelHistory.notes.findIndex(note => note._id.toString() === noteId);
+        
+        if (noteIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Note not found'
+            });
+        }
+        
+        // Delete images from Cloudinary if any
+        const note = travelHistory.notes[noteIndex];
+        if (note.images && note.images.length > 0) {
+            for (const image of note.images) {
+                try {
+                    await cloudinary.uploader.destroy(image.publicId);
+                } catch (deleteError) {
+                    console.error(`Failed to delete image ${image.publicId}:`, deleteError);
+                    // Continue with note deletion even if image deletion fails
+                }
+            }
+        }
+        
+        // Remove the note from the travel history
+        travelHistory.notes.splice(noteIndex, 1);
+        
+        // Save the updated travel history
+        const updatedTravelHistory = await travelHistory.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Note deleted successfully',
             data: updatedTravelHistory
         });
     } catch (error) {
         console.error(error);
         res.status(500).json({
             success: false,
-            message: 'Failed to update travel notes',
+            message: 'Failed to delete note',
+            error: error.message
+        });
+    }
+}
+
+exports.addExpense = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, price, description, date } = req.body;
+        const userId = req.account.userId;
+        
+        // Validate required fields
+        if (!name || !price) {
+            return res.status(400).json({
+                success: false,
+                message: 'Name and price are required for expenses'
+            });
+        }
+        
+        const travelHistory = await TravelHistory.findById(id);
+        
+        if (!travelHistory) {
+            return res.status(404).json({
+                success: false,
+                message: 'Travel history not found'
+            });
+        }
+        
+        // Check if user is authorized to add expenses
+        const isCreator = travelHistory.creatorId.toString() === userId;
+        const isParticipant = travelHistory.participants.some(p => 
+            p.toString() === userId
+        );
+        
+        if (!isCreator && !isParticipant) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to add expenses to this travel history'
+            });
+        }
+        
+        // Create a new expense
+        const newExpense = {
+            name,
+            price: Number(price),
+            description: description || '',
+            date: date ? new Date(date) : new Date()
+        };
+        
+        // Add expense to travel history
+        travelHistory.expenses.push(newExpense);
+        const updatedTravelHistory = await travelHistory.save();
+        
+        // Return the newly added expense
+        const addedExpense = updatedTravelHistory.expenses[updatedTravelHistory.expenses.length - 1];
+        
+        res.status(201).json({
+            success: true,
+            message: 'Expense added successfully',
+            data: addedExpense
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to add expense',
+            error: error.message
+        });
+    }
+}
+
+exports.updateExpense = async (req, res) => {
+    try {
+        const { id, expenseId } = req.params;
+        const { name, price, description, date } = req.body;
+        const userId = req.account.userId;
+        
+        const travelHistory = await TravelHistory.findById(id);
+        
+        if (!travelHistory) {
+            return res.status(404).json({
+                success: false,
+                message: 'Travel history not found'
+            });
+        }
+        
+        // Check if user is authorized to update expenses
+        const isCreator = travelHistory.creatorId.toString() === userId;
+        const isParticipant = travelHistory.participants.some(p => 
+            p.toString() === userId
+        );
+        
+        if (!isCreator && !isParticipant) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to update expenses for this travel history'
+            });
+        }
+        
+        // Find the expense to update
+        const expenseIndex = travelHistory.expenses.findIndex(
+            expense => expense._id.toString() === expenseId
+        );
+        
+        if (expenseIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Expense not found'
+            });
+        }
+        
+        // Update expense fields if provided
+        if (name) travelHistory.expenses[expenseIndex].name = name;
+        if (price !== undefined) travelHistory.expenses[expenseIndex].price = Number(price);
+        if (description !== undefined) travelHistory.expenses[expenseIndex].description = description;
+        if (date) travelHistory.expenses[expenseIndex].date = new Date(date);
+        
+        // Save the updated travel history
+        const updatedTravelHistory = await travelHistory.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Expense updated successfully',
+            data: updatedTravelHistory.expenses[expenseIndex]
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update expense',
+            error: error.message
+        });
+    }
+}
+
+exports.deleteExpense = async (req, res) => {
+    try {
+        const { id, expenseId } = req.params;
+        const userId = req.account.userId;
+        
+        const travelHistory = await TravelHistory.findById(id);
+        
+        if (!travelHistory) {
+            return res.status(404).json({
+                success: false,
+                message: 'Travel history not found'
+            });
+        }
+        
+        // Check if user is authorized to delete expenses
+        const isCreator = travelHistory.creatorId.toString() === userId;
+        const isParticipant = travelHistory.participants.some(p => 
+            p.toString() === userId
+        );
+        
+        if (!isCreator && !isParticipant) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to delete expenses for this travel history'
+            });
+        }
+        
+        // Find the expense to delete
+        const expenseIndex = travelHistory.expenses.findIndex(
+            expense => expense._id.toString() === expenseId
+        );
+        
+        if (expenseIndex === -1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Expense not found'
+            });
+        }
+        
+        // Remove the expense from the travel history
+        travelHistory.expenses.splice(expenseIndex, 1);
+        
+        // Save the updated travel history
+        const updatedTravelHistory = await travelHistory.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Expense deleted successfully',
+            data: updatedTravelHistory
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete expense',
             error: error.message
         });
     }

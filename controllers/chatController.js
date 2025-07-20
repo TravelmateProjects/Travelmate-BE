@@ -324,7 +324,7 @@ exports.createTravelHistory = async (req, res) => {
     try {
         const creatorId = req.account.userId;
         const { id } = req.params; // Get chatRoomId from params
-        const { plan, destination, arrivalDate, returnDate, notes } = req.body;
+        const { plan, destination, arrivalDate, returnDate } = req.body;
 
         // Find and validate chat room
         const chatRoom = await ChatRoom.findById(id);
@@ -352,7 +352,8 @@ exports.createTravelHistory = async (req, res) => {
             arrivalDate,
             returnDate,
             status: 'planing', // Set initial status to planning
-            notes: notes // Preserve the original value of notes, even if it is an empty string
+            notes: [], // Initialize with empty notes array
+            expenses: [] // Initialize with empty expenses array
         });
         await travelHistory.save();
 
