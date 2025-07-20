@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
   cccd: { type: String }, // Mã hoá lại
   hobbies: [{ type: String }],
   description: { type: String },
+  accountStautus: { type: Boolean, default: true }, // Trạng thái tài khoản
   rate: { type: Number, default: 0 },
   avatar: { 
     url: { type: String },

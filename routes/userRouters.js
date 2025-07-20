@@ -1,10 +1,13 @@
+
 const express = require('express');
-const router = express.Router();
 const userController = require('../controllers/userController');
 const { verifyToken, authorizeRole } = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
+const router = express.Router();
+// Search users by criteria
+router.post('/searchUsers', verifyToken, authorizeRole('admin'), userController.searchUsers); // Tìm kiếm người dùng theo tiêu chí
 
 router.put('/updateProfile', verifyToken, userController.updateProfile); // Cập nhật thông tin cá nhân trừ avatar và coverImage
 router.put('/updateCoverImage', verifyToken, upload.single('image'), userController.updateCoverImage); // Cập nhật ảnh bìa

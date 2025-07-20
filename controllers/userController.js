@@ -149,8 +149,25 @@ exports.updateAvatar = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
+    // Get all users
     const users = await User.find();
-    res.status(200).json({ message: 'Users retrieved successfully', data: users });
+    // Get all accounts and map by userId
+    const accounts = await Account.find({}, 'userId accountStatus username role');
+    const accountMap = {};
+    accounts.forEach(acc => {
+      if (acc.userId) accountMap[acc.userId.toString()] = acc;
+    });
+    // Merge accountStatus, username, and role into user object
+    const usersWithStatus = users.map(user => {
+      const acc = accountMap[user._id.toString()];
+      return {
+        ...user.toObject(),
+        accountStatus: acc ? acc.accountStatus : undefined,
+        username: acc ? acc.username : undefined,
+        role: acc ? acc.role : undefined
+      };
+    });
+    res.status(200).json({ message: 'Users retrieved successfully', data: usersWithStatus });
   } catch (error) {
     res.status(500).json({ message: `Failed to retrieve users: ${error.message}` });
   }
@@ -248,5 +265,75 @@ exports.getManyByIds = async (req, res) => {
     res.status(200).json({ message: 'Users retrieved successfully', data: users });
   } catch (error) {
     res.status(500).json({ message: `Failed to retrieve users: ${error.message}` });
+  }
+};
+
+// Search users by criteria (username, email, status)
+exports.searchUsers = async (req, res) => {
+  try {
+    const { username, fullName, email, accountStatus } = req.body;
+    let userIdsFromAccount = null;
+    let userIdsFromUser = null;
+
+    // 1. Filter Account by username/accountStatus
+    if (username || accountStatus !== undefined) {
+      let accountFilter = {};
+      if (username) accountFilter.username = { $regex: username, $options: 'i' };
+      if (accountStatus !== undefined) accountFilter.accountStatus = accountStatus;
+      const accounts = await Account.find(accountFilter, 'userId');
+      userIdsFromAccount = accounts
+        .filter(acc => acc.userId !== undefined && acc.userId !== null)
+        .map(acc => acc.userId.toString());
+      if (userIdsFromAccount.length === 0) {
+        return res.status(200).json({ message: 'Users found', data: [] });
+      }
+    }
+
+    // 2. Filter User by email/fullName
+    let userFilter = {};
+    if (email) userFilter.email = { $regex: email, $options: 'i' };
+    if (fullName) userFilter.fullName = { $regex: fullName, $options: 'i' };
+    let users = [];
+    if (Object.keys(userFilter).length > 0) {
+      users = await User.find(userFilter);
+      userIdsFromUser = users.map(u => u._id.toString());
+      if (userIdsFromUser.length === 0) {
+        return res.status(200).json({ message: 'Users found', data: [] });
+      }
+    } else {
+      users = await User.find();
+      userIdsFromUser = users.map(u => u._id.toString());
+    }
+
+    // 3. Combine filters (intersection if both, else one)
+    let finalUserIds = userIdsFromUser;
+    if (userIdsFromAccount) {
+      finalUserIds = finalUserIds.filter(id => userIdsFromAccount.includes(id));
+      if (finalUserIds.length === 0) {
+        return res.status(200).json({ message: 'Users found', data: [] });
+      }
+    }
+
+    // 4. Get final users
+    const finalUsers = await User.find({ _id: { $in: finalUserIds } });
+    // 5. Get all accounts for these users
+    const accounts = await Account.find({ userId: { $in: finalUserIds } }, 'userId accountStatus username role');
+    const accountMap = {};
+    accounts.forEach(acc => {
+      if (acc.userId) accountMap[acc.userId.toString()] = acc;
+    });
+    // 6. Merge accountStatus, username, and role into user object
+    const usersWithStatus = finalUsers.map(user => {
+      const acc = accountMap[user._id.toString()];
+      return {
+        ...user.toObject(),
+        accountStatus: acc ? acc.accountStatus : undefined,
+        username: acc ? acc.username : undefined,
+        role: acc ? acc.role : undefined
+      };
+    });
+    res.status(200).json({ message: 'Users found', data: usersWithStatus });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to search users: ${error.message}` });
   }
 };
