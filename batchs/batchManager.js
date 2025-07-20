@@ -12,11 +12,13 @@ class BatchManager {
      * @param {boolean} [options.enableTravelReminders] - Enable travel reminder job
      * @param {boolean} [options.enableVipReminders] - Enable VIP account reminder job
      * @param {boolean} [options.enableTravelStatusUpdates] - Enable travel status update job
+     * @param {boolean} [options.enableRatingReminders] - Enable rating reminder job
      */
   async init(options = {
     enableTravelReminders: true,
     enableVipReminders: true,
-    enableTravelStatusUpdates: true
+    enableTravelStatusUpdates: true,
+    enableRatingReminders: true
   }) {
     console.log('[BatchManager] Initializing batch jobs...');
     try {

@@ -102,7 +102,8 @@ connectDB().then(async () => {
     await batchManager.init({ 
       enableTravelReminders: true,
       enableVipReminders: true,
-      enableTravelStatusUpdates: true
+      enableTravelStatusUpdates: true,
+      enableRatingReminders: true
     });
   } catch (err) {
     console.error('Failed to initialize batch jobs:', err);
