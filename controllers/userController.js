@@ -149,8 +149,43 @@ exports.updateAvatar = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find();
-    res.status(200).json({ message: 'Users retrieved successfully', data: users });
+    // Support filtering by username, email, accountStatus
+    const { username, email, status } = req.query;
+    // Find Account info for status/username
+    let userFilter = {};
+    if (email) userFilter.email = { $regex: email, $options: 'i' };
+    if (username) userFilter.fullName = { $regex: username, $options: 'i' };
+
+    // Find users first
+    let users = await User.find(userFilter);
+
+    // If status filter is provided, join with Account
+    if (status !== undefined) {
+      // Find all accounts with matching status
+      const Account = require('../models/Account');
+      const statusBool = status === 'active' ? true : false;
+      const accounts = await Account.find({ accountStatus: statusBool });
+      const userIds = accounts.map(acc => acc.userId.toString());
+      users = users.filter(u => userIds.includes(u._id.toString()));
+    }
+
+    // Optionally, join Account info for each user (for role, accountStatus, username)
+    const Account = require('../models/Account');
+    const userIdList = users.map(u => u._id);
+    const accounts = await Account.find({ userId: { $in: userIdList } });
+    // Merge user and account info
+    const merged = users.map(u => {
+      const acc = accounts.find(a => a.userId.toString() === u._id.toString());
+      return {
+        ...u.toObject(),
+        account: acc ? {
+          username: acc.username,
+          role: acc.role,
+          accountStatus: acc.accountStatus
+        } : null
+      };
+    });
+    res.status(200).json({ message: 'Users retrieved successfully', data: merged });
   } catch (error) {
     res.status(500).json({ message: `Failed to retrieve users: ${error.message}` });
   }
