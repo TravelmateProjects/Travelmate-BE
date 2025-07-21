@@ -30,7 +30,7 @@ router.put(
   blogController.updateUserBlog
 ); // Cập nhật bài viết theo ID
 router.delete("/:id", verifyToken, blogController.deleteUserBlog); // Xóa bài viết theo ID
-
+router.get("/user/:userId", verifyToken, blogController.getBlogsByUserId); // Lấy danh sách bài viết của một người dùng cụ thể
 // === Các Routes Quản Lý Cảm Xúc (Reactions) Của Blog ===
 router.post(
   "/reactions",

@@ -5,7 +5,7 @@ const { verifyToken, verifyRefreshToken, authorizeRole } = require('../middlewar
 
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-router.post('/refresh-token',  authController.refreshToken);
+router.post('/refresh-token', verifyRefreshToken, authController.refreshToken);
 router.post('/logout', authController.logout);
 router.post('/verify-account', authController.verifyAccount);
 router.post('/forgot-password', authController.forgotPassword);

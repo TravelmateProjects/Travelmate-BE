@@ -39,15 +39,21 @@ exports.verifyToken = (req, res, next) => {
   }
 };
 
-exports.verifyRefreshToken = (req, res, next) => { // Đang cấn, cần sửa
-  const refreshToken = req.cookies;
+exports.verifyRefreshToken = (req, res, next) => {
+  // Get refresh token from cookies or request body
+  let refreshToken = req.cookies && req.cookies.refreshToken || null;
+  
+  // If no token in cookies, try to get from request body
+  if (!refreshToken && req.body && req.body.refreshToken) {
+    refreshToken = req.body.refreshToken;
+  }
 
   if (!refreshToken) {
     return res.status(401).json({ message: 'No refresh token provided' });
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     req.account = decoded; // gán dữ liệu refresh token vào req.user
     next();
   } catch (err) {

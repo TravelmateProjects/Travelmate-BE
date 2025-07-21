@@ -161,6 +161,7 @@ exports.login = async (req, res) => {
           username: account.username,
           role: account.role,
           userId: account.userId ? account.userId._id : undefined,
+          proInfo: account.proInfo
         },
         user: account.userId || undefined
       });
@@ -175,6 +176,7 @@ exports.login = async (req, res) => {
           username: account.username,
           role: account.role,
           userId: account.userId ? account.userId._id : undefined,
+          proInfo: account.proInfo
         },
         user: account.userId || undefined
       });

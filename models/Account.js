@@ -24,6 +24,13 @@ const accountSchema = new mongoose.Schema({
     expiresAt: { type: Date },
   }, // Mã xác nhận email
   
+  proInfo: {
+    isPro: { type: Boolean, default: false },
+    plan: { type: String, enum: ['month', 'year'], default: null },
+    expireAt: { type: Date },
+    activatedAt: { type: Date }
+  },
+  
 }, { timestamps: true });
 
 // Auto hash password before save

@@ -33,6 +33,9 @@ const socketIo = require('socket.io');
 const io = socketIo(server, { cors: { origin: '*' } });
 app.set('io', io);
 
+// Make io globally available for batch jobs
+global.socketIO = io;
+
 initSocket(io);
 
 /**

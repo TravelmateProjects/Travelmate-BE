@@ -8,6 +8,7 @@ const upload = multer({ storage });
 
 // router.get('/', chatController.getAllChatRooms); // Lấy danh sách tất cả phòng chat(test)
 router.get('/', verifyToken, authorizeRole('user'), chatController.getChatRooms); // Lấy danh sách phòng chat người dùng
+router.get('/user/:userId/rooms', verifyToken, authorizeRole('user'), chatController.getUserChatRoomsByUserId); // Lấy danh sách phòng chat theo userId
 router.get('/:id', verifyToken, authorizeRole('user'), chatController.getChatRoomById); // Lấy thông tin phòng chat theo ID
 router.post('/', verifyToken, authorizeRole('user'), chatController.createChatRoom); // Tạo phòng chat mới
 router.post('/chatAi', verifyToken, authorizeRole('user'), chatController.handleChatAI); // chat AI
@@ -20,5 +21,6 @@ router.delete('/:id', verifyToken, authorizeRole('user'), chatController.deleteC
 router.delete('/:id/message/:messageId', verifyToken, authorizeRole('user'), chatController.deleteMessage); // Xóa tin nhắn theo ID
 router.post('/:id/add-participant', verifyToken, authorizeRole('user'), chatController.addParticipant); // Thêm người vào chatroom
 router.post('/:id/remove-participant', verifyToken, authorizeRole('user'), chatController.removeParticipant); // Kick người khỏi chatroom
+router.put('/:id/edit-name', verifyToken, authorizeRole('user'), chatController.editChatRoomName); // Đổi tên phòng chat
 
 module.exports = router;
