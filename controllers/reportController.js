@@ -25,7 +25,10 @@ exports.createReport = async (req, res) => {
 
 exports.getAllReports = async (req, res) => {
     try {
-        const reports = await Report.find().populate('userId', 'fullName email').populate('userIsReported', 'fullName email');
+        const reports = await Report.find()
+            .populate('userId', 'fullName email')
+            .populate('userIsReported', 'fullName email')
+            .populate('travelHistoryId', 'destination arrivalDate returnDate');
         res.status(200).json({ message: 'Reports retrieved successfully', data: reports });
     } catch (error) {
         res.status(500).json({ message: `Failed to retrieve reports: ${error.message}` });
@@ -34,7 +37,10 @@ exports.getAllReports = async (req, res) => {
 
 exports.getReportById = async (req, res) => {
     try {
-        const report = await Report.findById(req.params.reportId).populate('userId', 'fullName email').populate('userIsReported', 'fullName email');
+        const report = await Report.findById(req.params.reportId)
+            .populate('userId', 'fullName email')
+            .populate('userIsReported', 'fullName email')
+            .populate('travelHistoryId', 'destination arrivalDate returnDate');
         if (!report) {
             return res.status(404).json({ message: 'Report not found' });
         }

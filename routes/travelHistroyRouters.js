@@ -18,8 +18,11 @@ router.get('/all', verifyToken, authorizeRole("admin"), travelHistoryController.
 // Get all travel histories for authenticated user
 router.get('/', verifyToken, authorizeRole("user"),  travelHistoryController.getAllUserTravelHistory);
 
-// Get specific travel history by ID
+// Get specific travel history by ID (user)
 router.get('/:id', verifyToken, authorizeRole("user"), travelHistoryController.getTravelHistoryById);
+
+// Get specific travel history by ID (admin)
+router.get('/admin/:id', verifyToken, authorizeRole("admin"), travelHistoryController.getTravelHistoryById);
 
 // Update basic travel history information
 router.put('/:id', verifyToken, authorizeRole("user"), travelHistoryController.updateTravelHistory);
