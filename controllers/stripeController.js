@@ -40,8 +40,8 @@ exports.createCheckoutSession = async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: 'http://192.168.1.7:5000/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'http://192.168.48.248:5000/cancel',
+      success_url: 'http://18.212.15.44:5000/success?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'http://18.212.15.44:5000/cancel',
       metadata: {
         accountId,
         plan,
