@@ -17,5 +17,6 @@ router.put('/updateUserTitle', verifyToken, authorizeRole('admin'), userControll
 router.put('/lockUser/:userId', verifyToken, authorizeRole('admin'), userController.lockUser); // Khóa người dùng
 router.put('/unlockUser/:userId', verifyToken, authorizeRole('admin'), userController.unlockUser); // Mở khóa người dùng
 router.post('/getManyByIds', verifyToken, userController.getManyByIds); // Lấy nhiều user theo mảng userId
+router.get('/getAllUsersforstatistics', verifyToken, authorizeRole('admin'), userController.getAllUsersforstatistics); // Lấy tất cả người dùng
 
 module.exports = router;

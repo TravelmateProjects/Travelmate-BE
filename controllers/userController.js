@@ -149,8 +149,53 @@ exports.updateAvatar = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find();
-    res.status(200).json({ message: 'Users retrieved successfully', data: users });
+    const { searchTerm, status } = req.query;
+    let userFilter = {};
+    // Nếu có searchTerm thì tìm trên fullName hoặc email
+    if (searchTerm) {
+      userFilter.$or = [
+        { fullName: { $regex: searchTerm, $options: 'i' } },
+        { email: { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+    // Lấy users trước
+    let users = await User.find(userFilter);
+    // Lọc account theo username nếu có searchTerm
+    let accounts = [];
+    if (searchTerm) {
+      const Account = require('../models/Account');
+      accounts = await Account.find({ username: { $regex: searchTerm, $options: 'i' } });
+      // Lấy userId từ account tìm được
+      const userIdsFromAccount = accounts.map(acc => acc.userId.toString());
+      // Gộp userId từ users (fullName/email) và từ account (username)
+      const allUserIds = Array.from(new Set([
+        ...users.map(u => u._id.toString()),
+        ...userIdsFromAccount
+      ]));
+      users = await User.find({ _id: { $in: allUserIds } });
+    }
+    // Lọc account theo status nếu có
+    const Account = require('../models/Account');
+    let userIdList = users.map(u => u._id);
+    let accountFilter = { userId: { $in: userIdList } };
+    if (status) {
+      accountFilter.accountStatus = status === 'active';
+    }
+    accounts = await Account.find(accountFilter);
+    // Chỉ trả về user có account
+    const merged = users.map(u => {
+      const acc = accounts.find(a => a.userId.toString() === u._id.toString());
+      if (!acc) return null;
+      return {
+        ...u.toObject(),
+        account: {
+          username: acc.username,
+          role: acc.role,
+          accountStatus: acc.accountStatus
+        }
+      };
+    }).filter(Boolean);
+    res.status(200).json({ message: 'Users retrieved successfully', data: merged });
   } catch (error) {
     res.status(500).json({ message: `Failed to retrieve users: ${error.message}` });
   }
@@ -245,6 +290,15 @@ exports.getManyByIds = async (req, res) => {
       return res.status(400).json({ message: 'No user ids provided' });
     }
     const users = await User.find({ _id: { $in: ids } });
+    res.status(200).json({ message: 'Users retrieved successfully', data: users });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to retrieve users: ${error.message}` });
+  }
+};
+
+exports.getAllUsersforstatistics = async (req, res) => {
+  try {
+    const users = await User.find();
     res.status(200).json({ message: 'Users retrieved successfully', data: users });
   } catch (error) {
     res.status(500).json({ message: `Failed to retrieve users: ${error.message}` });

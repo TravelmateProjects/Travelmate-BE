@@ -319,7 +319,8 @@ exports.getTravelHistoryById = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.account.userId;
-        
+        const userRole = req.account.role;
+
         const travelHistory = await TravelHistory.findById(id)
             .populate('participants', 'fullName email avatar gender phone travelStatus currentLocation')
             .populate('creatorId', 'fullName email avatar gender phone')
@@ -327,28 +328,35 @@ exports.getTravelHistoryById = async (req, res) => {
                 path: 'plan',
                 select: 'plans', // Only select the plans array from TravelPlan
             });
-        
+
         if (!travelHistory) {
             return res.status(404).json({
                 success: false,
                 message: 'Travel history not found'
             });
         }
-        
-        // Check if user is authorized to view this record
-        // User can view if they are the creator or a participant
+
+        // Nếu là admin thì cho phép xem tất cả
+        if (userRole === 'admin') {
+            return res.status(200).json({
+                success: true,
+                data: travelHistory
+            });
+        }
+
+        // User thường: chỉ creator hoặc participant mới được xem
         const isCreator = travelHistory.creatorId._id.toString() === userId;
         const isParticipant = travelHistory.participants.some(p => 
             p._id && p._id.toString() === userId
         );
-        
+
         if (!isCreator && !isParticipant) {
             return res.status(403).json({
                 success: false,
                 message: 'You are not authorized to view this travel history'
             });
         }
-        
+
         res.status(200).json({
             success: true,
             data: travelHistory
